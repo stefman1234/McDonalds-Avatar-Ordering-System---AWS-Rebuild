@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  sortOrder Int        @default(0) @map("sort_order")
+  items     MenuItem[]
+
+  @@map("categories")
+}
+
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(6, 2)
+  imageUrl    String?  @map("image_url")
+  available   Boolean  @default(true)
+  categoryId  Int      @map("category_id")
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  aliases        MenuItemAlias[]
+  customizations Customization[]
+  orderItems     OrderItem[]
+  combos         ComboMeal[] @relation("ComboMain")
+
+  @@map("menu_items")
+}
+
+model MenuItemAlias {
+  id         Int      @id @default(autoincrement())
+  alias      String
+  menuItemId Int      @map("menu_item_id")
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("menu_item_aliases")
+}
+
+model Customization {
+  id         Int      @id @default(autoincrement())
+  name       String
+  priceExtra Decimal  @default(0) @map("price_extra") @db.Decimal(6, 2)
+  menuItemId Int      @map("menu_item_id")
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("customizations")
+}
+
+model ComboMeal {
+  id            Int     @id @default(autoincrement())
+  name          String
+  description   String?
+  basePrice     Decimal @map("base_price") @db.Decimal(6, 2)
+  discount      Decimal @default(0) @db.Decimal(6, 2)
+  mainItemId    Int     @map("main_item_id")
+  mainItem      MenuItem @relation("ComboMain", fields: [mainItemId], references: [id])
+  defaultSideId Int?    @map("default_side_id")
+  defaultDrinkId Int?   @map("default_drink_id")
+  available     Boolean @default(true)
+  popular       Boolean @default(false)
+  aliases       ComboAlias[]
+
+  @@map("combo_meals")
+}
+
+model ComboAlias {
+  id        Int       @id @default(autoincrement())
+  alias     String
+  comboId   Int       @map("combo_id")
+  combo     ComboMeal @relation(fields: [comboId], references: [id])
+
+  @@map("combo_aliases")
+}
+
+model Order {
+  id        Int         @id @default(autoincrement())
+  status    OrderStatus @default(PENDING)
+  orderType String      @default("dine_in") @map("order_type")
+  subtotal  Decimal     @default(0) @db.Decimal(8, 2)
+  tax       Decimal     @default(0) @db.Decimal(8, 2)
+  total     Decimal     @db.Decimal(8, 2)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  items     OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id             Int      @id @default(autoincrement())
+  quantity       Int      @default(1)
+  unitPrice      Decimal  @map("unit_price") @db.Decimal(6, 2)
+  customizations String?
+  orderId        Int      @map("order_id")
+  order          Order    @relation(fields: [orderId], references: [id])
+  menuItemId     Int      @map("menu_item_id")
+  menuItem       MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}

@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@theme {
+  --color-mcdonalds-red: #DA291C;
+  --color-mcdonalds-yellow: #FFC72C;
+  --color-mcdonalds-dark: #292929;
+  --color-mcdonalds-dark-red: #C41E3A;
+  --color-mcdonalds-light-yellow: #FFD700;
+  --color-mcdonalds-light: #F5F5F5;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* McDonald's Button Styles */
+.btn-primary {
+  background-color: var(--color-mcdonalds-red);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+.btn-primary:hover {
+  background-color: var(--color-mcdonalds-dark-red);
+}
+.btn-primary:active {
+  transform: scale(0.95);
+}
+
+.btn-secondary {
+  background-color: var(--color-mcdonalds-yellow);
+  color: black;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+.btn-secondary:hover {
+  background-color: var(--color-mcdonalds-light-yellow);
+}
+.btn-secondary:active {
+  transform: scale(0.95);
+}
+
+.btn-outline {
+  border: 2px solid var(--color-mcdonalds-red);
+  color: var(--color-mcdonalds-red);
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  background: transparent;
+}
+.btn-outline:hover {
+  background-color: var(--color-mcdonalds-red);
+  color: white;
+}
+.btn-outline:active {
+  transform: scale(0.95);
+}
+
+/* Card Styles */
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  padding: 1.5rem;
+  border: 1px solid rgb(243 244 246);
+}
+
+.card-hover {
+  composes: card;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.card-hover:hover {
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  transform: translateY(-2px);
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+/* Hide scrollbar for horizontal carousels */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
