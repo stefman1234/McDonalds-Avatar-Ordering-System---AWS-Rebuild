@@ -20,6 +20,9 @@ export async function GET() {
       discount: Number(combo.discount),
       mainItem: combo.mainItem.name,
       mainItemId: combo.mainItemId,
+      defaultSideId: combo.defaultSideId,
+      defaultDrinkId: combo.defaultDrinkId,
+      available: combo.available,
       popular: combo.popular,
       aliases: combo.aliases.map((a) => a.alias),
     }));

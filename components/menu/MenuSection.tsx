@@ -4,10 +4,22 @@ import { useState, useEffect, useCallback } from "react";
 import CategoryTabs from "./CategoryTabs";
 import MenuCard from "./MenuCard";
 import CustomizationModal from "./CustomizationModal";
+import FilterBanner from "./FilterBanner";
+import ClarificationBanner from "./ClarificationBanner";
 import { useCartStore } from "@/stores/cartStore";
 import type { CategoryDTO, MenuItemDTO } from "@/lib/types";
 
-export default function MenuSection() {
+interface MenuSectionProps {
+  filteredItemIds?: number[] | null;
+  filterQuery?: string;
+  onClearFilter?: () => void;
+}
+
+export default function MenuSection({
+  filteredItemIds,
+  filterQuery,
+  onClearFilter,
+}: MenuSectionProps) {
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
   const cartItems = useCartStore((s) => s.items);
@@ -49,6 +61,12 @@ export default function MenuSection() {
     });
   }
 
+  function handleSelectClarification(itemId: number) {
+    const allItems = categories.flatMap((c) => c.items);
+    const item = allItems.find((i) => i.id === itemId);
+    if (item) handleAdd(item);
+  }
+
   function handleCustomizeConfirm(
     item: MenuItemDTO,
     customizations: string[]
@@ -66,6 +84,13 @@ export default function MenuSection() {
       imageUrl: item.imageUrl,
     });
   }
+
+  // When filter is active, show filtered items across all categories
+  const isFiltered = filteredItemIds && filteredItemIds.length > 0;
+  const allItems = categories.flatMap((c) => c.items);
+  const filteredItems = isFiltered
+    ? allItems.filter((item) => filteredItemIds.includes(item.id))
+    : [];
 
   const activeItems =
     typeof activeTab === "number"
@@ -86,15 +111,46 @@ export default function MenuSection() {
         ) : (
           <CategoryTabs
             categories={categories}
-            activeId={activeTab}
-            onSelect={setActiveTab}
+            activeId={isFiltered ? null : activeTab}
+            onSelect={(id) => {
+              setActiveTab(id);
+              onClearFilter?.();
+            }}
             orderCount={itemCount()}
           />
         )}
 
         {/* Content area */}
         <div className="h-full overflow-hidden">
-          {activeTab === "your_order" ? (
+          {/* Filter banners */}
+          <div className="px-4 pt-1">
+            {isFiltered && filterQuery && (
+              <FilterBanner
+                query={filterQuery}
+                resultCount={filteredItems.length}
+                onClear={() => onClearFilter?.()}
+              />
+            )}
+            <ClarificationBanner onSelectItem={handleSelectClarification} />
+          </div>
+
+          {isFiltered ? (
+            // Filtered view (from voice/NLP)
+            <div className="flex gap-4 overflow-x-auto px-4 py-3 no-scrollbar">
+              {filteredItems.map((item) => (
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  onAdd={handleAdd}
+                  onCustomize={
+                    item.customizations.length > 0
+                      ? (i) => setCustomizeItem(i)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : activeTab === "your_order" ? (
             // Your Order view
             cartItems.length > 0 ? (
               <div className="flex gap-4 overflow-x-auto px-4 py-3 no-scrollbar">

@@ -198,7 +198,7 @@ export default function DebugPanel() {
                       <p className="text-gray-300 break-words">
                         {event.message}
                       </p>
-                      {event.data && (
+                      {event.data !== undefined && event.data !== null && (
                         <details className="mt-2">
                           <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400">
                             Show data

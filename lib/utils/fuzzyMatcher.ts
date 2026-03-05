@@ -56,3 +56,33 @@ export function fuzzyMatchMenuItem(
 
   return null;
 }
+
+/**
+ * Return multiple fuzzy matches (for ambiguous queries / clarification).
+ */
+export function fuzzySearchAll(
+  query: string,
+  menu: MenuItemDTO[],
+  maxResults: number = 5
+): { item: MenuItemDTO; score: number }[] {
+  const normalizedQuery = query.toLowerCase().trim();
+
+  const fuseItems = menu.map((item) => ({
+    ...item,
+    searchText: [item.name, ...item.aliases, item.description ?? ""].join(" "),
+  }));
+
+  const fuse = new Fuse(fuseItems, {
+    keys: ["searchText", "name"],
+    threshold: 0.5,
+    includeScore: true,
+  });
+
+  return fuse
+    .search(normalizedQuery)
+    .slice(0, maxResults)
+    .map((result) => ({
+      item: result.item,
+      score: result.score !== undefined ? 1 - result.score : 0.5,
+    }));
+}

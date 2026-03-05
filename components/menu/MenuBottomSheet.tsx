@@ -17,7 +17,7 @@ export default function MenuBottomSheet() {
   const addItem = useCartStore((s) => s.addItem);
 
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
-  const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  const [activeCategory, setActiveCategory] = useState<number | "your_order" | null>(null);
   const [customizeItem, setCustomizeItem] = useState<MenuItemDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,7 +88,7 @@ export default function MenuBottomSheet() {
     });
   }
 
-  function handleCategorySelect(id: number) {
+  function handleCategorySelect(id: number | "your_order") {
     resetCollapseTimer();
     setActiveCategory(id);
   }

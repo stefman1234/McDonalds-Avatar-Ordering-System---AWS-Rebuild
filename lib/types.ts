@@ -35,10 +35,11 @@ export interface CartItem {
 }
 
 export interface NLPOrderIntent {
-  action: "add" | "remove" | "modify" | "clear" | "checkout" | "unknown";
+  action: "add" | "remove" | "modify" | "clear" | "checkout" | "meal_response" | "unknown";
   items: NLPOrderItem[];
   clarificationNeeded?: string;
   response: string;
+  fuzzyCandidates?: { id: number; name: string; price: number; score: number; categoryName: string }[];
 }
 
 export interface NLPOrderItem {
@@ -47,6 +48,9 @@ export interface NLPOrderItem {
   customizations: string[];
   matchedMenuItemId?: number;
   confidence: number;
+  unitPrice?: number;
+  categoryName?: string;
+  originalName?: string; // for modify actions
 }
 
 export interface ChatMessage {
@@ -55,3 +59,38 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
 }
+
+export interface ComboMealDTO {
+  id: number;
+  name: string;
+  description: string | null;
+  basePrice: number;
+  discount: number;
+  mainItemId: number;
+  defaultSideId: number | null;
+  defaultDrinkId: number | null;
+  available: boolean;
+  popular: boolean;
+  aliases: string[];
+}
+
+export interface MealDealSuggestion {
+  combo: ComboMealDTO;
+  currentTotal: number;
+  comboPrice: number;
+  savings: number;
+  matchedItemIds: string[];
+}
+
+export interface PendingItem {
+  id: string;
+  menuItem: MenuItemDTO;
+  quantity: number;
+  customizations: string[];
+  status: "confirming" | "customizing" | "meal_offer" | "ready";
+  comboOffer?: ComboMealDTO;
+}
+
+export type ClarificationType = "not_found" | "ambiguous" | "size_needed";
+
+export type VoiceCheckoutStep = "idle" | "readback" | "order_type" | "payment" | "processing";
