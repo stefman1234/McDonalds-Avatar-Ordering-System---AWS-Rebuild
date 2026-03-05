@@ -1,7 +1,7 @@
 # McDonald's Avatar Ordering System - AWS Rebuild Plan
 
-**Version:** 2.0
-**Date:** 2025-03-05
+**Version:** 2.1
+**Date:** 2026-03-05
 **Target:** Full AWS deployment, cost & performance optimized
 **Display:** 1920x1080 kiosk (portrait mode)
 
@@ -56,9 +56,10 @@ is OpenAI's API latency (500ms-2s), not our server processing time.
                         └────────┬────────┘
                                  │
                         ┌────────▼────────┐
-                        │  ECS Fargate    │
+                        │  EC2 t3.micro   │
                         │  (Next.js 15)   │
                         │  Port 3000      │
+                        │  Nginx :80/:443 │
                         │                 │
                         │  ┌───────────┐  │
                         │  │ API Routes│  │
@@ -70,12 +71,10 @@ is OpenAI's API latency (500ms-2s), not our server processing time.
                     ┌────────┘   │   └────────┐
                     │            │            │
            ┌────────▼───┐ ┌─────▼─────┐ ┌────▼────────┐
-           │  RDS Proxy │ │  OpenAI   │ │  DynamoDB   │
-           │     ↓      │ │ GPT-4o-   │ │  (Sessions  │
-           │  Aurora     │ │  mini     │ │   + Cache)  │
-           │ Serverless  │ │  (NLP)    │ │             │
-           │  v2 (PG)   │ │           │ │             │
-           │  Port 5432 │ │           │ │             │
+           │  Aurora     │ │  OpenAI   │ │  DynamoDB   │
+           │ Serverless  │ │ GPT-4o-   │ │  (Sessions  │
+           │  v2 (PG)   │ │  mini     │ │   + Cache)  │
+           │  Port 5432 │ │  (NLP)    │ │             │
            └────────────┘ └───────────┘ └─────────────┘
 
 External (frontend loaded in browser):
@@ -93,12 +92,14 @@ External (frontend loaded in browser):
 
 | Decision | Reason |
 |----------|--------|
-| **ECS Fargate** over Lambda | No cold starts (critical for kiosk — must respond instantly). Fargate Spot is 70% cheaper than on-demand. Lambda cold starts of 1-3s are unacceptable for a kiosk. |
-| **ECS Fargate** over Amplify | Amplify uses Lambda@Edge under the hood for SSR — same cold start problem. Fargate gives us a warm, always-on server. |
-| **Aurora Serverless v2** over RDS | Scales to 0.5 ACU when idle (~$43/month minimum). Regular RDS minimum is db.t3.micro at ~$15/month but no auto-scaling. Aurora is better for variable kiosk traffic (busy lunch, dead overnight). |
-| **RDS Proxy** over direct connection | Connection pooling. Next.js API routes open a new connection per request. Without RDS Proxy, you'll exhaust Aurora's connection limit (45 for 0.5 ACU). RDS Proxy pools connections and reuses them. |
+| **EC2 t3.micro** over Lambda | No cold starts (critical for kiosk — must respond instantly). Lambda cold starts of 1-3s are unacceptable. t3.micro is always warm and costs ~$8/month. |
+| **EC2 t3.micro** over Fargate | Simpler, cheaper for a single kiosk. No container orchestration overhead. Direct SSH access for debugging. 2 vCPU + 1GB RAM is more than enough. |
+| **EC2** over Amplify | Amplify uses Lambda@Edge under the hood for SSR — same cold start problem. EC2 gives us a warm, always-on server with full control. |
+| **Aurora Serverless v2** over RDS fixed | Scales to 0.5 ACU when idle (~$43/month minimum). Better for variable kiosk traffic (busy lunch, dead overnight). Scales up automatically during peak. |
+| **Direct DB connection** (no RDS Proxy) | Single EC2 instance with Prisma connection pooling handles connections fine. RDS Proxy adds $22/month overhead that's unnecessary for a single server. Prisma's built-in pool (connection_limit=10) prevents exhaustion. |
 | **DynamoDB** for sessions/cache | Sub-10ms reads. Menu cache and session state don't need relational queries. DynamoDB on-demand pricing = pay per read/write, ~$0 when idle. |
 | **CloudFront** | SSL termination, static asset caching, DDoS protection. Free tier covers 1TB/month. |
+| **No ALB** | Single EC2 instance doesn't need a load balancer. CloudFront connects directly to the EC2 origin. Saves ~$18/month. |
 | **No separate backend** | Single deployment, single codebase, zero cross-service latency. |
 
 ---
@@ -108,22 +109,20 @@ External (frontend loaded in browser):
 ### Compute
 | Service | Purpose | Config |
 |---------|---------|--------|
-| **ECS Fargate (Spot)** | Run Next.js app | 0.5 vCPU, 1GB RAM, 1 task |
-| **ECR** | Docker image registry | Store Next.js container image |
+| **EC2 t3.micro** | Run Next.js app | 2 vCPU, 1GB RAM, Amazon Linux 2023 |
+| **Elastic IP** | Static IP for EC2 | 1 address (free when attached) |
 
 ### Database
 | Service | Purpose | Config |
 |---------|---------|--------|
 | **Aurora Serverless v2** | PostgreSQL database (menu, orders, combos, customizations) | 0.5-2 ACU, PostgreSQL 15 |
-| **RDS Proxy** | Connection pooling for Aurora | Max 45 connections |
 | **DynamoDB** | Session state + menu cache | On-demand capacity |
 
 ### Networking & CDN
 | Service | Purpose | Config |
 |---------|---------|--------|
-| **CloudFront** | CDN, SSL, static assets | Default cache behaviors |
-| **VPC** | Private networking | 2 AZs, public + private subnets |
-| **ALB** | Load balancer for Fargate | Port 80/443 → 3000 |
+| **CloudFront** | CDN, SSL, static assets | Origin → EC2 Elastic IP:443 |
+| **VPC** | Networking | Public subnet for EC2, private for Aurora |
 
 ### Security
 | Service | Purpose | Config |
@@ -135,8 +134,7 @@ External (frontend loaded in browser):
 ### CI/CD
 | Service | Purpose | Config |
 |---------|---------|--------|
-| **CodePipeline** | Build & deploy pipeline | GitHub → Build → Deploy |
-| **CodeBuild** | Docker image builds | arm64 for cheaper Fargate |
+| **GitHub Actions** | Build & deploy pipeline | Push to main → SSH deploy to EC2 |
 
 ### Monitoring
 | Service | Purpose | Config |
@@ -442,7 +440,7 @@ CREATE TABLE customization_options (
   name            VARCHAR(100) NOT NULL,      -- "No Pickles", "Extra Cheese"
   category        VARCHAR(50) NOT NULL,       -- remove, add, modify, substitute
   price_modifier  DECIMAL(5,2) DEFAULT 0.00,
-  applicable_to   VARCHAR(100),               -- JSON array: ['burgers', 'chicken']
+  applicable_to   TEXT[],                      -- {'burgers', 'chicken'}
   created_at      TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX idx_customizations_category ON customization_options(category);
@@ -561,7 +559,7 @@ tier entirely.
 
 ## 6. API Routes & Endpoints
 
-All routes run inside Next.js on ECS Fargate, port 3000.
+All routes run inside Next.js on EC2 t3.micro, port 3000 (Nginx reverse proxy on 80/443).
 
 ### Menu APIs
 
@@ -648,11 +646,23 @@ Request → Check DynamoDB cache (< 5ms)
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| GET | `/api/health` | ALB health check (returns 200) |
+| GET | `/api/health` | Health check (returns 200) |
 
 ---
 
 ## 7. NLP & Order Processing
+
+### Architecture Pattern: RAG (Retrieval-Augmented Generation)
+
+This system uses a **RAG pattern** — the LLM does NOT have menu knowledge
+built in. Instead, every NLP request:
+
+1. **Retrieve**: Fetch current menu items from database (Aurora → DynamoDB cache)
+2. **Augment**: Inject menu data into the GPT-4o-mini prompt as context
+3. **Generate**: LLM parses user speech against the real, live menu
+
+This ensures the AI always references the actual menu (prices, availability,
+item names) rather than hallucinating items that don't exist.
 
 ### LLM: OpenAI GPT-4o-mini
 
@@ -662,9 +672,9 @@ Request → Check DynamoDB cache (< 5ms)
 - Response format: JSON object
 - Max tokens: ~500 per response
 
-**Prompt structure:**
+**Prompt structure (RAG):**
 1. System context: "You are Casey, a friendly McDonald's ordering assistant in Malaysia"
-2. Available menu items list (from cache — NOT from DB per request)
+2. **Retrieved menu items list** (from DynamoDB cache — NOT from DB per request)
 3. Conversation history (last 5 messages)
 4. Customer's latest speech
 5. JSON output format specification
@@ -763,16 +773,16 @@ Hot path:   Browser → Next.js API → DynamoDB cache (3-8ms) → Response
 - Invalidation: TTL-based (no manual invalidation needed)
 - Cost: ~$0.00 at kiosk scale (< 1000 reads/day)
 
-### 2. Connection Pooling (RDS Proxy)
+### 2. Connection Pooling (Prisma)
 
 ```
-Without proxy: Each API request → New TCP connection → Aurora (100ms handshake)
-With proxy:    Each API request → Reuse pooled connection → Aurora (< 5ms)
+Without pooling: Each API request → New TCP connection → Aurora (100ms handshake)
+With pooling:    Each API request → Reuse pooled connection → Aurora (< 5ms)
 ```
 
-- Max 45 connections for 0.5 ACU Aurora
-- RDS Proxy maintains warm pool
-- Eliminates connection exhaustion under load
+- Prisma connection pool: `connection_limit=10` in DATABASE_URL
+- Single EC2 instance with 10 pooled connections is more than sufficient
+- No RDS Proxy needed — saves $22/month
 
 ### 3. Preloading on Kiosk Boot
 
@@ -791,7 +801,7 @@ await Promise.all([
 For data that's accessed on every single NLP request:
 
 ```typescript
-// In-memory cache (lives in Fargate container memory)
+// In-memory cache (lives in EC2 process memory — persists across requests)
 let menuCache: MenuItem[] | null = null;
 let menuCacheExpiry = 0;
 
@@ -849,7 +859,7 @@ Match names to IDs on the server side (zero cost, zero latency).
 |-----------|---------|--------|-----|
 | Menu fetch | 50-100ms | < 10ms | DynamoDB cache |
 | NLP (OpenAI) | 500-2000ms | 300-1500ms | Compressed prompt, streaming |
-| DB connection | 100ms first, 5ms reuse | < 5ms always | RDS Proxy |
+| DB connection | 100ms first, 5ms reuse | < 5ms always | Prisma connection pool |
 | Avatar init | 2-5s | 2-5s | Cannot optimize (Klleon) |
 | Static assets | 200-500ms | < 50ms | CloudFront CDN |
 | **Total order** | **~3-5s** | **~1-3s** | All combined |
@@ -1131,7 +1141,7 @@ Response: {
   transactionId: "TXN-1709654321-A7B3",
   method: "card",
   amount: 15.99,
-  processedAt: "2025-03-05T12:00:00Z",
+  processedAt: "2026-03-05T12:00:00Z",
   receiptNumber: "RCP-001234"
 }
 ```
@@ -1252,8 +1262,8 @@ OPENAI_API_KEY=sk-...
 NEXT_PUBLIC_KLLEON_SDK_KEY=your-sdk-key
 NEXT_PUBLIC_KLLEON_AVATAR_ID=your-avatar-id
 
-# Database (Aurora via RDS Proxy)
-DATABASE_URL=postgresql://user:pass@rds-proxy-endpoint:5432/mcdonalds
+# Database (Aurora Serverless v2 — direct connection with Prisma pooling)
+DATABASE_URL=postgresql://user:pass@aurora-cluster-endpoint:5432/mcdonalds?connection_limit=10
 
 # DynamoDB (auto from IAM role — no key needed)
 DYNAMODB_TABLE_SESSIONS=kiosk-sessions
@@ -1269,48 +1279,75 @@ NEXT_PUBLIC_APP_URL=https://kiosk.yourdomain.com
 Only Klleon keys need this prefix. Everything else stays server-side.
 
 **Security:** OpenAI key and DATABASE_URL stored in AWS Secrets Manager,
-injected as environment variables into ECS task definition.
+loaded into EC2 environment via a startup script that fetches from Secrets Manager on boot.
 
 ---
 
 ## 15. Deployment Pipeline
 
-### CI/CD: GitHub → CodePipeline → ECS
+### CI/CD: GitHub Actions → SSH Deploy to EC2
 
 ```
 GitHub Push (main branch)
-  → CodePipeline trigger
-  → CodeBuild:
-      1. npm ci
-      2. npm run build
-      3. docker build -t mcdonalds-avatar .
-      4. docker push → ECR
-  → ECS Deploy:
-      1. Update task definition with new image
-      2. Rolling deployment (zero downtime)
-      3. Health check: GET /api/health returns 200
+  → GitHub Actions workflow triggers
+  → Steps:
+      1. SSH into EC2 via stored key
+      2. cd /app && git pull origin main
+      3. npm ci
+      4. npx prisma generate
+      5. npm run build
+      6. pm2 restart mcdonalds-kiosk
+      7. Health check: curl http://localhost:3000/api/health
 ```
 
-### Dockerfile
+**Why GitHub Actions over CodePipeline:**
+- Free for public repos, 2000 min/month for private
+- Simpler setup — no AWS CodePipeline + CodeBuild ($2/month saved)
+- Same result: push to main → app updates on EC2
 
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
+### EC2 Server Setup
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/public ./public
+```bash
+# Amazon Linux 2023 on t3.micro
+# Install Node.js 20, Nginx, PM2, Git
 
-EXPOSE 3000
-CMD ["npm", "start"]
+# Nginx reverse proxy config (/etc/nginx/conf.d/app.conf):
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name kiosk.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/kiosk.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kiosk.yourdomain.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# PM2 process manager (auto-restart on crash):
+pm2 start npm --name "mcdonalds-kiosk" -- start
+pm2 startup  # Auto-start on EC2 reboot
+pm2 save
+```
+
+### Secrets Loading (EC2 Startup Script)
+
+```bash
+#!/bin/bash
+# /app/load-secrets.sh — run before app starts
+# Fetches secrets from AWS Secrets Manager and exports as env vars
+
+export OPENAI_API_KEY=$(aws secretsmanager get-secret-value \
+  --secret-id mcdonalds/openai --query SecretString --output text)
+export DATABASE_URL=$(aws secretsmanager get-secret-value \
+  --secret-id mcdonalds/database --query SecretString --output text)
+# Klleon keys are NEXT_PUBLIC_ so they go in .env.local (baked at build time)
 ```
 
 ### Infrastructure as Code
@@ -1326,64 +1363,66 @@ Store in `/infrastructure/` folder in the repo.
 
 | Service | Config | Monthly Cost |
 |---------|--------|-------------|
-| **ECS Fargate Spot** | 0.5 vCPU, 1GB RAM, 24/7 | ~$13 |
+| **EC2 t3.micro** | 2 vCPU, 1GB RAM, 24/7 | ~$8 |
+| **Elastic IP** | 1 address (attached to EC2) | $0 |
 | **Aurora Serverless v2** | 0.5-1 ACU, PostgreSQL 15 | ~$45 |
-| **RDS Proxy** | 1 instance | ~$22 |
 | **DynamoDB** | On-demand, ~50K reads/month | ~$0.01 |
 | **CloudFront** | ~50GB transfer/month | ~$5 |
-| **ALB** | 1 load balancer | ~$18 |
-| **ECR** | ~500MB images | ~$0.50 |
 | **Secrets Manager** | 4 secrets | ~$2 |
 | **CloudWatch** | Basic logs + metrics | ~$3 |
-| **CodePipeline + CodeBuild** | ~30 builds/month | ~$2 |
 | **OpenAI GPT-4o-mini** | ~10K requests × ~500 tokens | ~$2 |
 | **Klleon SDK** | ~10K sessions × ~2 min | **TBD (contact Klleon)** |
 | | | |
-| **AWS Total** | | **~$113/month** |
+| **AWS Total** | | **~$63/month** |
 | **OpenAI Total** | | **~$2/month** |
 | **Klleon Total** | | **$200-1000/month (estimate)** |
 | | | |
-| **GRAND TOTAL** | | **~$315-1,115/month** |
+| **GRAND TOTAL** | | **~$265-1,065/month** |
 
 ### Cost Optimization Applied
 
-| Optimization | Savings |
+| Optimization | Savings vs previous plan |
 |-------------|---------|
-| Fargate **Spot** instead of On-Demand | -70% compute (~$30 saved) |
+| **EC2 t3.micro** instead of Fargate Spot | -$5/month |
+| **No ALB** (CloudFront → EC2 direct) | -$18/month |
+| **No RDS Proxy** (Prisma connection pool) | -$22/month |
+| **No ECR** (no container registry needed) | -$0.50/month |
+| **GitHub Actions** instead of CodePipeline | -$2/month |
 | Aurora **Serverless** scales down overnight | -40% vs fixed RDS |
 | DynamoDB **on-demand** instead of provisioned | -90% (near $0) |
 | OpenAI **compressed prompts** | -60% tokens (~$3 saved) |
 | CloudFront **free tier** (1TB) | -100% CDN cost first year |
 | Menu **caching** reduces Aurora reads | -50% DB queries |
+| **Total savings vs previous Fargate plan** | **~$50/month** |
 
 ### Cost Comparison: Current vs AWS
 
 | | Current (Supabase + Vercel) | AWS Rebuild |
 |---|---|---|
-| Database | $0-25 (Supabase free/pro) | ~$67 (Aurora + Proxy) |
-| Hosting | $0-20 (Vercel free/pro) | ~$36 (Fargate + ALB + CF) |
+| Database | $0-25 (Supabase free/pro) | ~$45 (Aurora Serverless) |
+| Hosting | $0-20 (Vercel free/pro) | ~$13 (EC2 + CloudFront) |
 | LLM | ~$2 (OpenAI) | ~$2 (OpenAI) |
-| Other | $0 | ~$8 (Secrets, logs, CI/CD) |
+| Other | $0 | ~$5 (Secrets, logs) |
 | Klleon | TBD | TBD |
-| **Total** | **~$2-47 + Klleon** | **~$113 + Klleon** |
+| **Total** | **~$2-47 + Klleon** | **~$65 + Klleon** |
 
-AWS is more expensive but gives you:
+AWS is more expensive than free tiers but gives you:
 - Full infrastructure control
 - No vendor lock-in (Supabase/Vercel)
-- Auto-scaling for multiple kiosks
 - Enterprise security (VPC, IAM, encryption at rest)
 - Monitoring and alerting (CloudWatch)
+- SSH access for debugging
 
 ### Scaling Costs
 
 | Kiosks | Orders/Month | AWS Cost | OpenAI | Total (excl. Klleon) |
 |--------|-------------|----------|--------|---------------------|
-| 1 | 10,000 | ~$113 | ~$2 | ~$115 |
-| 5 | 50,000 | ~$145 | ~$10 | ~$155 |
-| 10 | 100,000 | ~$200 | ~$20 | ~$220 |
-| 50 | 500,000 | ~$400 | ~$100 | ~$500 |
+| 1 | 10,000 | ~$63 | ~$2 | ~$65 |
+| 5 | 50,000 | ~$85 | ~$10 | ~$95 |
+| 10 | 100,000 | ~$130 | ~$20 | ~$150 |
 
-Aurora and Fargate auto-scale. Cost grows sub-linearly.
+**Note:** At 5+ kiosks, consider upgrading EC2 to t3.small ($16/month) or
+adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 
 ---
 
@@ -1391,14 +1430,15 @@ Aurora and Fargate auto-scale. Cost grows sub-linearly.
 
 ### Phase 0: AWS Infrastructure (Days 1-2)
 - [ ] Set up AWS account, VPC, subnets
+- [ ] Launch EC2 t3.micro (Amazon Linux 2023)
+- [ ] Attach Elastic IP
+- [ ] Install Node.js 20, Nginx, PM2, Git on EC2
+- [ ] Configure Nginx reverse proxy (port 80/443 → 3000)
 - [ ] Create Aurora Serverless v2 cluster
-- [ ] Create RDS Proxy
 - [ ] Create DynamoDB tables (sessions, cache)
-- [ ] Set up ECR repository
-- [ ] Create ECS cluster + Fargate service
-- [ ] Set up ALB + CloudFront
-- [ ] Configure Secrets Manager
-- [ ] Set up CodePipeline + CodeBuild
+- [ ] Set up CloudFront distribution (origin → EC2)
+- [ ] Configure Secrets Manager (OpenAI key, DB URL)
+- [ ] Set up GitHub Actions deploy workflow
 - [ ] Deploy health check endpoint
 
 ### Phase 1: Database & Seed Data (Days 3-4)
@@ -1408,7 +1448,7 @@ Aurora and Fargate auto-scale. Cost grows sub-linearly.
 - [ ] Seed 21 combo meals
 - [ ] Seed size variants
 - [ ] Populate search tags and search_terms
-- [ ] Set up Prisma with RDS Proxy connection
+- [ ] Set up Prisma with Aurora direct connection (connection_limit=10)
 - [ ] Create DynamoDB session/cache utilities
 - [ ] Verify all database queries work
 - [ ] Implement menu caching layer
@@ -1421,7 +1461,7 @@ Aurora and Fargate auto-scale. Cost grows sub-linearly.
 - [ ] POST /api/order (order creation)
 - [ ] POST /api/session (DynamoDB CRUD)
 - [ ] POST /api/payment/process (mock)
-- [ ] GET /api/health (ALB health check)
+- [ ] GET /api/health (health check)
 - [ ] Implement compressed NLP prompt
 - [ ] Implement fuzzy matching fallback
 
@@ -1530,34 +1570,33 @@ Aurora and Fargate auto-scale. Cost grows sub-linearly.
 
 | Service | Port | Protocol | Access |
 |---------|------|----------|--------|
-| **Next.js (Fargate)** | 3000 | HTTP | ALB only (private subnet) |
-| **ALB** | 80 | HTTP | Redirects to 443 |
-| **ALB** | 443 | HTTPS | CloudFront only |
+| **Next.js (EC2)** | 3000 | HTTP | Localhost only (Nginx proxies) |
+| **Nginx (EC2)** | 80 | HTTP | Redirects to 443 |
+| **Nginx (EC2)** | 443 | HTTPS | CloudFront origin / direct |
 | **CloudFront** | 443 | HTTPS | Public (kiosk browser) |
-| **Aurora PostgreSQL** | 5432 | TCP | RDS Proxy only (private subnet) |
-| **RDS Proxy** | 5432 | TCP | Fargate only (private subnet) |
+| **Aurora PostgreSQL** | 5432 | TCP | EC2 only (private subnet) |
 | **DynamoDB** | 443 | HTTPS | VPC endpoint (private) |
 | **Klleon SDK** | 443 | WSS | Public (browser → Klleon servers) |
-| **OpenAI API** | 443 | HTTPS | Fargate outbound (NAT Gateway) |
+| **OpenAI API** | 443 | HTTPS | EC2 outbound (Internet Gateway) |
 
 ### Network Flow
 
 ```
 Kiosk Browser (1920x1080)
   │
-  ├── HTTPS:443 → CloudFront → ALB:443 → Fargate:3000 (Next.js pages + API)
+  ├── HTTPS:443 → CloudFront → EC2 Nginx:443 → localhost:3000 (Next.js)
   │
   ├── HTTPS:443 → Klleon CDN (SDK script download)
   │
   └── WSS:443 → Klleon Servers (avatar streaming, STT, TTS)
 
-Fargate:3000 (inside VPC)
+EC2 t3.micro (public subnet with Elastic IP)
   │
-  ├── TCP:5432 → RDS Proxy → Aurora Serverless (SQL queries)
+  ├── TCP:5432 → Aurora Serverless (SQL queries, private subnet)
   │
   ├── HTTPS:443 → DynamoDB VPC Endpoint (sessions + cache)
   │
-  └── HTTPS:443 → NAT Gateway → OpenAI API (NLP processing)
+  └── HTTPS:443 → Internet Gateway → OpenAI API (NLP processing)
 ```
 
 ### VPC Design
@@ -1565,25 +1604,27 @@ Fargate:3000 (inside VPC)
 ```
 VPC: 10.0.0.0/16
 
-Public Subnets (2 AZs):
-  10.0.1.0/24 (AZ-a) — ALB, NAT Gateway
-  10.0.2.0/24 (AZ-b) — ALB
+Public Subnet:
+  10.0.1.0/24 (AZ-a) — EC2 t3.micro (Elastic IP)
 
-Private Subnets (2 AZs):
-  10.0.3.0/24 (AZ-a) — Fargate tasks, RDS Proxy
-  10.0.4.0/24 (AZ-b) — Fargate tasks, Aurora
+Private Subnets (2 AZs — required by Aurora):
+  10.0.3.0/24 (AZ-a) — Aurora primary
+  10.0.4.0/24 (AZ-b) — Aurora standby
 
 Security Groups:
-  ALB-SG:     Inbound 443 from CloudFront IPs
-  Fargate-SG: Inbound 3000 from ALB-SG
-  RDSProxy-SG: Inbound 5432 from Fargate-SG
-  Aurora-SG:  Inbound 5432 from RDSProxy-SG
+  EC2-SG:     Inbound 80/443 from 0.0.0.0/0 (or CloudFront IPs only)
+              Inbound 22 from your IP only (SSH)
+  Aurora-SG:  Inbound 5432 from EC2-SG only
 ```
+
+**Simplified vs Fargate plan:** No ALB, no RDS Proxy, no NAT Gateway (EC2
+is in public subnet with Internet Gateway). Fewer moving parts = fewer failure
+points and lower cost.
 
 ### DNS
 
 ```
-kiosk.yourdomain.com → CloudFront distribution → ALB → Fargate
+kiosk.yourdomain.com → CloudFront distribution → EC2 Elastic IP
 ```
 
 Or use CloudFront default domain: `d1234abcdef.cloudfront.net`
@@ -1594,16 +1635,16 @@ Or use CloudFront default domain: `d1234abcdef.cloudfront.net`
 
 | Aspect | Current (GitHub) | AWS Rebuild |
 |--------|-----------------|-------------|
-| Database | Supabase (hosted PostgreSQL) | Aurora Serverless v2 + RDS Proxy |
+| Database | Supabase (hosted PostgreSQL) | Aurora Serverless v2 (direct + Prisma pool) |
 | Sessions | PostgreSQL table | DynamoDB (faster, auto-cleanup) |
 | Menu Cache | None (query DB every time) | DynamoDB + in-memory (< 5ms) |
-| Hosting | Vercel (implied) | ECS Fargate Spot + CloudFront |
+| Hosting | Vercel (implied) | EC2 t3.micro + Nginx + CloudFront |
 | STT | Browser Web Speech API | Klleon native STT |
 | LLM | GPT-4o-mini (OpenAI) | GPT-4o-mini (OpenAI) — same |
 | TTS | Klleon echo() | Klleon echo() — same |
 | Avatar | Klleon SDK v1.2.0 | Klleon SDK v1.2.0 — same |
 | DB Client | Supabase JS client + Prisma | Prisma only (direct Aurora connection) |
-| CI/CD | Manual / GitHub Actions | AWS CodePipeline + CodeBuild |
+| CI/CD | Manual / GitHub Actions | GitHub Actions → SSH deploy |
 | Secrets | .env.local file | AWS Secrets Manager |
 | Monitoring | Console logs | CloudWatch |
 | Payment | None | Mock payment system |
