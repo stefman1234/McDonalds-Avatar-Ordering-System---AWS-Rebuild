@@ -57,10 +57,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(intent);
   } catch (error) {
-    console.error("NLP parse error:", error);
-    return NextResponse.json(
-      { error: "Failed to process order" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("NLP parse error:", message, error);
+
+    // Return a graceful fallback so the UI still works
+    if (message.includes("401") || message.includes("API key")) {
+      return NextResponse.json({
+        action: "unknown",
+        items: [],
+        clarificationNeeded: "Voice ordering is temporarily unavailable.",
+        response:
+          "Sorry, voice ordering is temporarily unavailable. Please use the menu below to add items.",
+        _error: "Invalid OpenAI API key",
+      });
+    }
+
+    return NextResponse.json({
+      action: "unknown",
+      items: [],
+      response:
+        "Sorry, I had trouble understanding that. Could you try again?",
+      _error: message,
+    });
   }
 }

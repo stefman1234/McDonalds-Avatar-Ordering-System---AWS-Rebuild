@@ -19,5 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "prisma.config.ts", "reference"]
+  "exclude": ["node_modules", "prisma.config.ts", "reference", "__tests__", "jest.config.ts"]
 }
