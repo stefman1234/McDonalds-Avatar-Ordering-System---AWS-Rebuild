@@ -1,6 +1,6 @@
 # McDonald's Avatar Ordering System - AWS Rebuild Plan
 
-**Version:** 2.1
+**Version:** 2.2
 **Date:** 2026-03-05
 **Target:** Full AWS deployment, cost & performance optimized
 **Display:** 1920x1080 kiosk (portrait mode)
@@ -27,6 +27,7 @@
 16. [Cost Estimate](#16-cost-estimate)
 17. [Build Phases & Timeline](#17-build-phases--timeline)
 18. [Ports & Networking](#18-ports--networking)
+19. [Development Best Practices](#19-development-best-practices)
 
 ---
 
@@ -71,9 +72,9 @@ is OpenAI's API latency (500ms-2s), not our server processing time.
                     ┌────────┘   │   └────────┐
                     │            │            │
            ┌────────▼───┐ ┌─────▼─────┐ ┌────▼────────┐
-           │  Aurora     │ │  OpenAI   │ │  DynamoDB   │
-           │ Serverless  │ │ GPT-4o-   │ │  (Sessions  │
-           │  v2 (PG)   │ │  mini     │ │   + Cache)  │
+           │    RDS      │ │  OpenAI   │ │  DynamoDB   │
+           │ db.t4g.micro│ │ GPT-4o-   │ │  (Sessions  │
+           │  (PG 15)   │ │  mini     │ │   + Cache)  │
            │  Port 5432 │ │  (NLP)    │ │             │
            └────────────┘ └───────────┘ └─────────────┘
 
@@ -95,7 +96,7 @@ External (frontend loaded in browser):
 | **EC2 t3.micro** over Lambda | No cold starts (critical for kiosk — must respond instantly). Lambda cold starts of 1-3s are unacceptable. t3.micro is always warm and costs ~$8/month. |
 | **EC2 t3.micro** over Fargate | Simpler, cheaper for a single kiosk. No container orchestration overhead. Direct SSH access for debugging. 2 vCPU + 1GB RAM is more than enough. |
 | **EC2** over Amplify | Amplify uses Lambda@Edge under the hood for SSR — same cold start problem. EC2 gives us a warm, always-on server with full control. |
-| **Aurora Serverless v2** over RDS fixed | Scales to 0.5 ACU when idle (~$43/month minimum). Better for variable kiosk traffic (busy lunch, dead overnight). Scales up automatically during peak. |
+| **RDS db.t4g.micro** over Aurora Serverless | For a single demo kiosk, fixed RDS is cheaper (~$13/month vs ~$45). db.t4g.micro has 2 vCPU, 1GB RAM — more than enough for this workload. Upgrade to Aurora Serverless if scaling to multiple kiosks later. |
 | **Direct DB connection** (no RDS Proxy) | Single EC2 instance with Prisma connection pooling handles connections fine. RDS Proxy adds $22/month overhead that's unnecessary for a single server. Prisma's built-in pool (connection_limit=10) prevents exhaustion. |
 | **DynamoDB** for sessions/cache | Sub-10ms reads. Menu cache and session state don't need relational queries. DynamoDB on-demand pricing = pay per read/write, ~$0 when idle. |
 | **CloudFront** | SSL termination, static asset caching, DDoS protection. Free tier covers 1TB/month. |
@@ -115,14 +116,14 @@ External (frontend loaded in browser):
 ### Database
 | Service | Purpose | Config |
 |---------|---------|--------|
-| **Aurora Serverless v2** | PostgreSQL database (menu, orders, combos, customizations) | 0.5-2 ACU, PostgreSQL 15 |
+| **RDS db.t4g.micro** | PostgreSQL 15 (menu, orders, combos, customizations) | 2 vCPU, 1GB RAM, 20GB gp3 |
 | **DynamoDB** | Session state + menu cache | On-demand capacity |
 
 ### Networking & CDN
 | Service | Purpose | Config |
 |---------|---------|--------|
 | **CloudFront** | CDN, SSL, static assets | Origin → EC2 Elastic IP:443 |
-| **VPC** | Networking | Public subnet for EC2, private for Aurora |
+| **VPC** | Networking | Public subnet for EC2, private for RDS |
 
 ### Security
 | Service | Purpose | Config |
@@ -212,7 +213,7 @@ External (frontend loaded in browser):
 - [x] Loading states, error states, empty states
 - [x] Debug panel (F8)
 - [x] Responsive card layouts
-- [x] Full-screen browse mode (/menu page)
+- [x] Full-screen browse mode (/menu page) — **replaced in rebuild with bottom sheet panel**
 
 ### NOT Yet Implemented (planned — include in rebuild)
 
@@ -376,17 +377,17 @@ User speaks into kiosk microphone
 
 ### Klleon Costs
 
-Klleon pricing is per-session/per-minute. Contact Klleon for exact pricing.
-Estimated: $0.01-0.05 per minute of avatar interaction.
-At ~2 min average per order, 10,000 orders/month = ~$200-1,000/month.
+Special arrangement in place — Klleon costs are covered and not factored
+into the cost estimate.
 
 ---
 
 ## 5. Database Design
 
-### PostgreSQL (Aurora Serverless v2)
+### PostgreSQL (RDS db.t4g.micro)
 
 Relational data that needs ACID transactions, JOINs, and complex queries.
+Using fixed-size RDS for cost optimization on single demo kiosk (~$13/month vs ~$45 for Aurora Serverless).
 
 #### Tables (same schema as current, optimized)
 
@@ -544,7 +545,7 @@ TTL: Enabled — auto-refreshes every 5 minutes
 ```
 
 **Why DynamoDB for sessions instead of PostgreSQL:**
-- Sub-10ms reads vs 30-100ms for Aurora
+- Sub-10ms reads vs 30-100ms for RDS
 - On-demand pricing = pay per read/write = ~$0/month at kiosk scale
 - TTL auto-cleanup = no cron jobs needed
 - Session data is non-relational (just key-value blobs)
@@ -580,7 +581,7 @@ All routes run inside Next.js on EC2 t3.micro, port 3000 (Nginx reverse proxy on
 ```
 Request → Check DynamoDB cache (< 5ms)
   → Cache hit? Return cached data
-  → Cache miss? Query Aurora → Store in DynamoDB → Return
+  → Cache miss? Query RDS → Store in DynamoDB → Return
 ```
 
 ### NLP API
@@ -657,7 +658,7 @@ Request → Check DynamoDB cache (< 5ms)
 This system uses a **RAG pattern** — the LLM does NOT have menu knowledge
 built in. Instead, every NLP request:
 
-1. **Retrieve**: Fetch current menu items from database (Aurora → DynamoDB cache)
+1. **Retrieve**: Fetch current menu items from database (RDS → DynamoDB cache)
 2. **Augment**: Inject menu data into the GPT-4o-mini prompt as context
 3. **Generate**: LLM parses user speech against the real, live menu
 
@@ -763,7 +764,7 @@ const result = JSON.parse(buffer);
 ### 1. Menu Cache (DynamoDB)
 
 ```
-Cold path:  Browser → Next.js API → Aurora query (50-100ms) → Response
+Cold path:  Browser → Next.js API → RDS query (50-100ms) → Response
 Hot path:   Browser → Next.js API → DynamoDB cache (3-8ms) → Response
 ```
 
@@ -776,8 +777,8 @@ Hot path:   Browser → Next.js API → DynamoDB cache (3-8ms) → Response
 ### 2. Connection Pooling (Prisma)
 
 ```
-Without pooling: Each API request → New TCP connection → Aurora (100ms handshake)
-With pooling:    Each API request → Reuse pooled connection → Aurora (< 5ms)
+Without pooling: Each API request → New TCP connection → RDS (100ms handshake)
+With pooling:    Each API request → Reuse pooled connection → RDS (< 5ms)
 ```
 
 - Prisma connection pool: `connection_limit=10` in DATABASE_URL
@@ -809,7 +810,7 @@ async function getMenuItems(): Promise<MenuItem[]> {
   if (menuCache && Date.now() < menuCacheExpiry) {
     return menuCache; // 0ms — already in memory
   }
-  // Fetch from DynamoDB cache or Aurora
+  // Fetch from DynamoDB cache or RDS
   menuCache = await fetchFromSource();
   menuCacheExpiry = Date.now() + 5 * 60 * 1000; // 5 min
   return menuCache;
@@ -868,6 +869,19 @@ Match names to IDs on the server side (zero cost, zero latency).
 
 ## 9. Frontend Architecture
 
+### Design Philosophy: Minimal & Contextual
+
+The kiosk UI should be **minimal by default** — the avatar is the primary
+interface. UI elements appear only when relevant and disappear when not needed.
+This reduces visual clutter and keeps focus on the conversational experience.
+
+**Core Principles:**
+1. **Avatar-first**: Avatar takes up majority of screen. It IS the interface.
+2. **Show on demand**: Menu, cart, and order details are hidden by default — revealed via buttons or voice triggers.
+3. **Contextual display**: Elements appear when relevant (e.g., menu carousel slides up when user says "show me burgers") and auto-hide after interaction.
+4. **Touch-friendly**: All interactive elements min 44px tap target (WCAG).
+5. **No persistent chrome**: Minimize always-visible UI. Header is compact, no permanent sidebars.
+
 ### Framework
 - **Next.js 15** (App Router)
 - **React 18** (functional components only)
@@ -879,56 +893,94 @@ Match names to IDs on the server side (zero cost, zero latency).
 | Route | Purpose | SSR/CSR |
 |-------|---------|---------|
 | `/` | Idle screen (ad + Start Order button) | CSR |
-| `/order` | Theater mode (avatar + menu carousel) | CSR |
-| `/menu` | Full grid browse mode (fallback) | CSR |
+| `/order` | Main ordering screen (avatar + contextual panels) | CSR |
 | `/checkout` | Order review + payment | CSR |
 | `/confirmation` | Order confirmation + receipt | CSR |
 
 All pages are client-rendered (`'use client'`) because they depend on
 browser APIs (Klleon SDK, localStorage, Web Audio).
 
-### Layout Structure (Theater Mode - /order)
+**Removed:** `/menu` as a separate page. Browse functionality is now a
+slide-up panel triggered from the `/order` page (button or voice command).
+This keeps users in the avatar conversation flow.
+
+### Layout Structure (Main Order Screen - /order)
 
 ```
 ┌─────────────────────────────────────────┐
-│  Header (sticky, z-9999)                │  ~48px
-│  [Logo] [McDonald's - Order with Casey] │
-│  [Browse Menu →] [Cart (3)]             │
+│  Header (compact, semi-transparent)     │  ~40px
+│  [Logo]                    [Cart (3)]   │
 ├─────────────────────────────────────────┤
 │                                         │
-│         Avatar Zone (flex-1)            │  ~65%
+│                                         │
+│         Avatar Zone (full screen)       │  100% - header
 │    bg-gradient: mcd-red → mcd-dark-red  │
 │                                         │
 │  ┌──────────────────────────────────┐   │
 │  │  <avatar-container> (z-10)      │   │
-│  │  Chat Messages overlay (z-30)   │   │
-│  │  Mic button (z-50, bottom-4)    │   │
-│  │  Loading/Error overlay (z-20)   │   │
+│  │                                  │   │
+│  │  Chat bubbles (z-30)            │   │
+│  │  (last 2-3 messages, fade out)  │   │
+│  │                                  │   │
 │  └──────────────────────────────────┘   │
 │                                         │
-├─────────────────────────────────────────┤  border-t-4 border-mcd-yellow
-│  Category Tabs (horizontal scroll)      │  ~40px
-│  [All][Burgers][Chicken][Sides]...      │
-├─────────────────────────────────────────┤
-│                                         │
-│  Menu Carousel / Your Order             │  35vh (min 300px)
-│  (horizontal scroll, snap, momentum)    │
+│  ┌──────┐           ┌──────────────┐    │
+│  │ 🎤   │           │ Browse Menu  │    │  Floating buttons
+│  │ Mic  │           │      ↑       │    │  (bottom of screen)
+│  └──────┘           └──────────────┘    │
 │                                         │
 └─────────────────────────────────────────┘
+
+Contextual panels (slide up from bottom when triggered):
+
+┌─────────────────────────────────────────┐
+│  Panel Header: "Menu" / "Your Order"    │  Draggable
+│  [Category Tabs] or [Order Items]       │  handle
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐      │
+│  │Card │ │Card │ │Card │ │Card │      │  Carousel
+│  └─────┘ └─────┘ └─────┘ └─────┘      │
+│  [Close ×]                              │
+└─────────────────────────────────────────┘
 ```
+
+**Key difference from current UI:** The menu carousel is NOT permanently
+visible. It slides up as a bottom sheet when:
+- User taps "Browse Menu" button
+- User says "show me the menu" / "what burgers do you have"
+- NLP returns fuzzy matches (filtered results)
+- Avatar suggests items ("Would you like to see our burgers?")
+
+It auto-collapses after 15s of no interaction or when user starts speaking.
+
+### Contextual Panel States
+
+| Trigger | Panel Content | Auto-hide |
+|---------|--------------|-----------|
+| "Browse Menu" button / voice | Full menu with category tabs | 15s idle |
+| NLP fuzzy match results | Filtered menu items + FilterBanner | 15s idle |
+| "Your Order" / cart icon | Order items carousel | On close tap |
+| Customization tap | CustomizationModal (full-screen overlay) | On complete |
+| "Checkout" voice/button | Navigate to /checkout page | N/A |
+
+### Chat Messages Behavior
+
+- Show last **2-3 messages** only (not a full scrolling chat log)
+- Messages **fade out** after 8 seconds to keep screen clean
+- Latest message stays visible until next interaction
+- Tap on avatar zone to temporarily show full message history (overlay)
 
 ### Z-Index Stack
 
 | Layer | Z-Index | Element |
 |-------|---------|---------|
-| Header | 9999 | Sticky navigation |
-| Microphone button | 50 | Bottom-center of avatar zone |
-| Chat messages | 30 | Overlays avatar |
+| Customization Modal | 60 | Full-screen overlay |
+| Cart Drawer | 50 + backdrop 40 | Slides from right |
+| Microphone button | 50 | Bottom-left floating |
+| Bottom sheet panel | 45 | Menu/Order slide-up |
+| Chat messages | 30 | Overlays avatar, auto-fade |
 | Loading/Error overlay | 20 | Covers avatar during init |
 | Avatar | 10 | Base rendering layer |
-| Cart Drawer | 50 + backdrop 40 | Slides from right |
-| Debug Panel | 9999 | Full-screen overlay |
-| Customization Modal | 40 (Radix) | Centered dialog |
+| Debug Panel | 9999 | F8 full-screen overlay (dev only) |
 
 ### McDonald's Branding
 
@@ -959,57 +1011,60 @@ colors: {
 .btn-primary    → bg-mcd-red text-white hover:bg-mcd-dark-red active:scale-95
 .btn-secondary  → bg-mcd-yellow text-black hover:bg-mcd-light-yellow
 .btn-outline    → border-2 border-mcd-red text-mcd-red hover:bg-mcd-red hover:text-white
-.card           → bg-white rounded-xl shadow-lg p-6 border border-gray-100
-.card-hover     → card + hover:shadow-xl hover:-translate-y-1
-.input          → w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-mcd-red
+.btn-floating   → rounded-full shadow-lg p-4 min-w-[44px] min-h-[44px]
+.card           → bg-white rounded-xl shadow-lg p-4 border border-gray-100
+.bottom-sheet   → fixed bottom-0 w-full bg-white rounded-t-2xl shadow-2xl transition-transform
 ```
 
 ---
 
 ## 10. Component Inventory
 
-### Avatar Components
+### Avatar Components (always visible)
 | Component | File | Purpose |
 |-----------|------|---------|
 | AvatarContainer | `components/Avatar/AvatarContainer.tsx` | Main orchestrator: Klleon init, STT, NLP, cart integration, greeting, error handling |
-| ChatMessages | `components/Avatar/ChatMessages.tsx` | Chat bubble display (user=yellow, Casey=white), auto-scroll |
+| ChatMessages | `components/Avatar/ChatMessages.tsx` | Floating chat bubbles (last 2-3, auto-fade after 8s), tap to expand history |
 
-### Menu Components
+### Menu Components (shown on demand via bottom sheet)
 | Component | File | Purpose |
 |-----------|------|---------|
+| MenuBottomSheet | `components/Menu/MenuBottomSheet.tsx` | Slide-up panel container with drag handle, auto-collapse on idle |
 | MenuCarousel | `components/Menu/MenuCarousel.tsx` | Horizontal scroll with momentum physics, 240px cards, drag-to-scroll |
-| MenuCard | `components/Menu/MenuCard.tsx` | Item card with emoji, badges, price, Add/Customize buttons |
-| CategoryTabs | `components/Menu/CategoryTabs.tsx` | 8 tabs: All, Burgers, Chicken, Sides, Drinks, Desserts, Happy Meal, Your Order |
-| CustomizationModal | `components/Menu/CustomizationModal.tsx` | 5-step flow: meal type → size → side → drink+ice → toppings |
-| FilterBanner | `components/Menu/FilterBanner.tsx` | Yellow banner for fuzzy search results |
-| MenuList | `components/Menu/MenuList.tsx` | Grid view for /menu page |
-| CategoryFilter | `components/Menu/CategoryFilter.tsx` | Alternative filter for /menu page |
+| MenuCard | `components/Menu/MenuCard.tsx` | Item card with badges, price, Add/Customize buttons |
+| CategoryTabs | `components/Menu/CategoryTabs.tsx` | 7 tabs: All, Burgers, Chicken, Sides, Drinks, Desserts, Happy Meal |
+| CustomizationModal | `components/Menu/CustomizationModal.tsx` | Full-screen overlay: meal type → size → side → drink+ice → toppings |
+| FilterBanner | `components/Menu/FilterBanner.tsx` | Yellow banner for fuzzy search results ("Showing results for...") |
 
-### Cart Components
+### Cart Components (shown on demand)
 | Component | File | Purpose |
 |-----------|------|---------|
 | CartDrawer | `components/Cart/CartDrawer.tsx` | Slide-from-right panel, scrollable items, summary |
-| CartButton | `components/Cart/CartButton.tsx` | Header icon with yellow badge count |
+| CartButton | `components/Cart/CartButton.tsx` | Header icon with yellow badge count (only shows when cart > 0) |
 | CartItem | `components/Cart/CartItem.tsx` | Item display with quantity controls, customizations, price |
 | CartSummary | `components/Cart/CartSummary.tsx` | Subtotal, tax (8.25%), total, checkout button |
 
-### Order Components
+### Order Components (shown on demand)
 | Component | File | Purpose |
 |-----------|------|---------|
-| OrderItemsCarousel | `components/Order/OrderItemsCarousel.tsx` | "Your Order" tab, horizontal scroll, checkout button |
-| OrderItemCard | `components/Order/OrderItemCard.tsx` | Order item with meal details, customize/remove buttons |
-| OrderReviewCarousel | `components/Order/OrderReviewCarousel.tsx` | Single-item review with prev/next navigation |
-| EmptyOrderState | `components/Order/EmptyOrderState.tsx` | Empty cart with tips and Browse Menu button |
+| OrderBottomSheet | `components/Order/OrderBottomSheet.tsx` | Slide-up panel showing current order items |
+| OrderItemCard | `components/Order/OrderItemCard.tsx` | Order item with meal details, remove button |
+| EmptyOrderState | `components/Order/EmptyOrderState.tsx` | Empty state with "Start ordering by speaking or browsing" |
+
+### Floating UI (always visible on /order)
+| Component | File | Purpose |
+|-----------|------|---------|
+| MicButton | `components/UI/MicButton.tsx` | Floating mic button (bottom-left), pulsing when active |
+| BrowseMenuButton | `components/UI/BrowseMenuButton.tsx` | Floating button (bottom-right), opens MenuBottomSheet |
 
 ### UI Primitives
 | Component | File | Purpose |
 |-----------|------|---------|
-| Button | `components/UI/Button.tsx` | primary/secondary/outline, sm/md/lg, loading state |
-| Card | `components/UI/Card.tsx` | Card, CardHeader, CardBody, CardFooter |
-| Modal | `components/UI/Modal.tsx` | Radix Dialog wrapper, sm/md/lg/xl sizes |
-| Input | `components/UI/Input.tsx` | Label, error, helper text, validation |
+| Button | `components/UI/Button.tsx` | primary/secondary/outline/floating variants, loading state |
+| BottomSheet | `components/UI/BottomSheet.tsx` | Reusable slide-up panel with drag-to-dismiss, backdrop |
+| Modal | `components/UI/Modal.tsx` | Full-screen overlay for customization |
 
-### Debug
+### Debug (dev only)
 | Component | File | Purpose |
 |-----------|------|---------|
 | DebugPanel | `components/Debug/DebugPanel.tsx` | F8 overlay, event log, filters, statistics |
@@ -1038,7 +1093,7 @@ colors: {
 - `isListening`: boolean
 - `messages`: ChatMessage[] (last 10)
 - `errorMessage`: string | null
-- Refs: hasGreeted, isListening, avatarRef, browserSTT
+- Refs: hasGreeted, isListening, avatarRef
 
 #### Order Page State
 - `menuItems` / `filteredItems`: MenuItem[]
@@ -1262,8 +1317,8 @@ OPENAI_API_KEY=sk-...
 NEXT_PUBLIC_KLLEON_SDK_KEY=your-sdk-key
 NEXT_PUBLIC_KLLEON_AVATAR_ID=your-avatar-id
 
-# Database (Aurora Serverless v2 — direct connection with Prisma pooling)
-DATABASE_URL=postgresql://user:pass@aurora-cluster-endpoint:5432/mcdonalds?connection_limit=10
+# Database (RDS db.t4g.micro — direct connection with Prisma pooling)
+DATABASE_URL=postgresql://user:pass@rds-endpoint.ap-southeast-1.rds.amazonaws.com:5432/mcdonalds?connection_limit=10
 
 # DynamoDB (auto from IAM role — no key needed)
 DYNAMODB_TABLE_SESSIONS=kiosk-sessions
@@ -1359,70 +1414,53 @@ Store in `/infrastructure/` folder in the repo.
 
 ## 16. Cost Estimate
 
-### Monthly Cost: 10,000 orders/month (~333/day)
+### Monthly Cost: Single Demo Kiosk
 
 | Service | Config | Monthly Cost |
 |---------|--------|-------------|
 | **EC2 t3.micro** | 2 vCPU, 1GB RAM, 24/7 | ~$8 |
 | **Elastic IP** | 1 address (attached to EC2) | $0 |
-| **Aurora Serverless v2** | 0.5-1 ACU, PostgreSQL 15 | ~$45 |
+| **RDS db.t4g.micro** | PostgreSQL 15, 2 vCPU, 1GB RAM, 20GB gp3 | ~$13 |
 | **DynamoDB** | On-demand, ~50K reads/month | ~$0.01 |
 | **CloudFront** | ~50GB transfer/month | ~$5 |
 | **Secrets Manager** | 4 secrets | ~$2 |
 | **CloudWatch** | Basic logs + metrics | ~$3 |
 | **OpenAI GPT-4o-mini** | ~10K requests × ~500 tokens | ~$2 |
-| **Klleon SDK** | ~10K sessions × ~2 min | **TBD (contact Klleon)** |
+| **Klleon SDK** | Special arrangement | $0 (covered) |
 | | | |
-| **AWS Total** | | **~$63/month** |
-| **OpenAI Total** | | **~$2/month** |
-| **Klleon Total** | | **$200-1000/month (estimate)** |
-| | | |
-| **GRAND TOTAL** | | **~$265-1,065/month** |
+| **GRAND TOTAL** | | **~$33/month** |
 
 ### Cost Optimization Applied
 
-| Optimization | Savings vs previous plan |
+| Optimization | Impact |
 |-------------|---------|
-| **EC2 t3.micro** instead of Fargate Spot | -$5/month |
+| **EC2 t3.micro** instead of Fargate/Lambda | Cheapest always-on compute |
+| **RDS db.t4g.micro** instead of Aurora Serverless | -$32/month (fixed vs serverless) |
 | **No ALB** (CloudFront → EC2 direct) | -$18/month |
 | **No RDS Proxy** (Prisma connection pool) | -$22/month |
-| **No ECR** (no container registry needed) | -$0.50/month |
-| **GitHub Actions** instead of CodePipeline | -$2/month |
-| Aurora **Serverless** scales down overnight | -40% vs fixed RDS |
-| DynamoDB **on-demand** instead of provisioned | -90% (near $0) |
-| OpenAI **compressed prompts** | -60% tokens (~$3 saved) |
+| **GitHub Actions** instead of CodePipeline | Free for public repos |
+| DynamoDB **on-demand** | Near $0 at kiosk scale |
+| OpenAI **compressed prompts** | -60% token cost |
 | CloudFront **free tier** (1TB) | -100% CDN cost first year |
-| Menu **caching** reduces Aurora reads | -50% DB queries |
-| **Total savings vs previous Fargate plan** | **~$50/month** |
+| Menu **caching** reduces DB reads | -50% DB queries |
 
 ### Cost Comparison: Current vs AWS
 
 | | Current (Supabase + Vercel) | AWS Rebuild |
 |---|---|---|
-| Database | $0-25 (Supabase free/pro) | ~$45 (Aurora Serverless) |
+| Database | $0-25 (Supabase free/pro) | ~$13 (RDS db.t4g.micro) |
 | Hosting | $0-20 (Vercel free/pro) | ~$13 (EC2 + CloudFront) |
 | LLM | ~$2 (OpenAI) | ~$2 (OpenAI) |
 | Other | $0 | ~$5 (Secrets, logs) |
-| Klleon | TBD | TBD |
-| **Total** | **~$2-47 + Klleon** | **~$65 + Klleon** |
+| **Total** | **~$2-47** | **~$33** |
 
-AWS is more expensive than free tiers but gives you:
-- Full infrastructure control
-- No vendor lock-in (Supabase/Vercel)
-- Enterprise security (VPC, IAM, encryption at rest)
-- Monitoring and alerting (CloudWatch)
-- SSH access for debugging
+### Scaling Path
 
-### Scaling Costs
-
-| Kiosks | Orders/Month | AWS Cost | OpenAI | Total (excl. Klleon) |
-|--------|-------------|----------|--------|---------------------|
-| 1 | 10,000 | ~$63 | ~$2 | ~$65 |
-| 5 | 50,000 | ~$85 | ~$10 | ~$95 |
-| 10 | 100,000 | ~$130 | ~$20 | ~$150 |
-
-**Note:** At 5+ kiosks, consider upgrading EC2 to t3.small ($16/month) or
-adding an ALB for load balancing across multiple instances. Aurora auto-scales.
+| Scale | Change | Cost Impact |
+|-------|--------|-------------|
+| 1 kiosk (demo) | Current plan | ~$33/month |
+| 5 kiosks | Upgrade EC2 to t3.small, RDS to db.t4g.small | ~$50/month |
+| 10+ kiosks | Switch to Aurora Serverless + ALB + auto-scaling | ~$150+/month |
 
 ---
 
@@ -1434,7 +1472,7 @@ adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 - [ ] Attach Elastic IP
 - [ ] Install Node.js 20, Nginx, PM2, Git on EC2
 - [ ] Configure Nginx reverse proxy (port 80/443 → 3000)
-- [ ] Create Aurora Serverless v2 cluster
+- [ ] Create RDS db.t4g.micro PostgreSQL 15 instance
 - [ ] Create DynamoDB tables (sessions, cache)
 - [ ] Set up CloudFront distribution (origin → EC2)
 - [ ] Configure Secrets Manager (OpenAI key, DB URL)
@@ -1442,13 +1480,13 @@ adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 - [ ] Deploy health check endpoint
 
 ### Phase 1: Database & Seed Data (Days 3-4)
-- [ ] Run table creation SQL on Aurora
+- [ ] Run table creation SQL on RDS
 - [ ] Seed 50+ menu items
 - [ ] Seed 120+ customization options
 - [ ] Seed 21 combo meals
 - [ ] Seed size variants
 - [ ] Populate search tags and search_terms
-- [ ] Set up Prisma with Aurora direct connection (connection_limit=10)
+- [ ] Set up Prisma with RDS direct connection (connection_limit=10)
 - [ ] Create DynamoDB session/cache utilities
 - [ ] Verify all database queries work
 - [ ] Implement menu caching layer
@@ -1468,10 +1506,11 @@ adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 ### Phase 3: UI Foundation (Days 8-10)
 - [ ] Set up Next.js 15 with TypeScript strict mode
 - [ ] Configure Tailwind with McDonald's branding
-- [ ] Build UI primitives (Button, Card, Modal, Input)
+- [ ] Build UI primitives (Button, BottomSheet, Modal)
 - [ ] Build idle screen (app/page.tsx)
-- [ ] Build layout.tsx with Klleon script
-- [ ] Build globals.css with all component classes
+- [ ] Build layout.tsx with Klleon script + error boundary
+- [ ] Build globals.css with component classes
+- [ ] Set up environment variable validation (fail fast on missing vars)
 
 ### Phase 4: Klleon Avatar Integration (Days 11-14)
 - [ ] Implement Klleon init with full STT enabled
@@ -1488,22 +1527,25 @@ adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 - [ ] Handle Klleon LLM suppression (ignore PREPARING_RESPONSE/RESPONSE_OK)
 
 ### Phase 5: Menu & Cart (Days 15-18)
+- [ ] Build BottomSheet reusable component (slide-up, drag-to-dismiss)
+- [ ] Build MenuBottomSheet (extends BottomSheet with category tabs)
 - [ ] Build MenuCarousel with momentum scrolling
-- [ ] Build MenuCard with badges and emoji detection
-- [ ] Build CategoryTabs (8 categories)
-- [ ] Build CustomizationModal (5-step flow)
-- [ ] Build FilterBanner
-- [ ] Build CartDrawer, CartButton, CartItem, CartSummary
+- [ ] Build MenuCard with badges
+- [ ] Build CategoryTabs (7 categories)
+- [ ] Build CustomizationModal (full-screen 5-step flow)
+- [ ] Build FilterBanner for fuzzy results
+- [ ] Build CartDrawer, CartButton (badge only when cart > 0), CartItem, CartSummary
 - [ ] Build Zustand cart store with persistence
 - [ ] Connect menu to cart (add, customize, remove)
 
 ### Phase 6: Order Flow (Days 19-21)
-- [ ] Build OrderItemsCarousel ("Your Order" tab)
+- [ ] Build OrderBottomSheet
 - [ ] Build OrderItemCard with meal details
 - [ ] Build EmptyOrderState
-- [ ] Build theater mode page (app/order/page.tsx)
-- [ ] Build browse mode page (app/menu/page.tsx)
-- [ ] Implement 30s inactivity timeout
+- [ ] Build main order page (app/order/page.tsx) — avatar-first, minimal UI
+- [ ] Build floating MicButton and BrowseMenuButton
+- [ ] Implement auto-show/hide bottom sheet on voice triggers
+- [ ] Implement 30s inactivity timeout (collapse panels, then redirect)
 - [ ] Connect voice ordering to cart
 
 ### Phase 7: NLP & Meal Logic (Days 22-26)
@@ -1574,7 +1616,7 @@ adding an ALB for load balancing across multiple instances. Aurora auto-scales.
 | **Nginx (EC2)** | 80 | HTTP | Redirects to 443 |
 | **Nginx (EC2)** | 443 | HTTPS | CloudFront origin / direct |
 | **CloudFront** | 443 | HTTPS | Public (kiosk browser) |
-| **Aurora PostgreSQL** | 5432 | TCP | EC2 only (private subnet) |
+| **RDS PostgreSQL** | 5432 | TCP | EC2 only (private subnet) |
 | **DynamoDB** | 443 | HTTPS | VPC endpoint (private) |
 | **Klleon SDK** | 443 | WSS | Public (browser → Klleon servers) |
 | **OpenAI API** | 443 | HTTPS | EC2 outbound (Internet Gateway) |
@@ -1592,7 +1634,7 @@ Kiosk Browser (1920x1080)
 
 EC2 t3.micro (public subnet with Elastic IP)
   │
-  ├── TCP:5432 → Aurora Serverless (SQL queries, private subnet)
+  ├── TCP:5432 → RDS db.t4g.micro (SQL queries, private subnet)
   │
   ├── HTTPS:443 → DynamoDB VPC Endpoint (sessions + cache)
   │
@@ -1607,14 +1649,13 @@ VPC: 10.0.0.0/16
 Public Subnet:
   10.0.1.0/24 (AZ-a) — EC2 t3.micro (Elastic IP)
 
-Private Subnets (2 AZs — required by Aurora):
-  10.0.3.0/24 (AZ-a) — Aurora primary
-  10.0.4.0/24 (AZ-b) — Aurora standby
+Private Subnet:
+  10.0.3.0/24 (AZ-a) — RDS db.t4g.micro
 
 Security Groups:
   EC2-SG:     Inbound 80/443 from 0.0.0.0/0 (or CloudFront IPs only)
               Inbound 22 from your IP only (SSH)
-  Aurora-SG:  Inbound 5432 from EC2-SG only
+  RDS-SG:     Inbound 5432 from EC2-SG only
 ```
 
 **Simplified vs Fargate plan:** No ALB, no RDS Proxy, no NAT Gateway (EC2
@@ -1624,10 +1665,12 @@ points and lower cost.
 ### DNS
 
 ```
-kiosk.yourdomain.com → CloudFront distribution → EC2 Elastic IP
+kiosk.yourdomain.com → Cloudflare DNS → CloudFront distribution → EC2 Elastic IP
 ```
 
-Or use CloudFront default domain: `d1234abcdef.cloudfront.net`
+**DNS Management:** Cloudflare (to be configured by user).
+CNAME `kiosk.yourdomain.com` → CloudFront distribution domain.
+Until domain is configured, use CloudFront default: `d1234abcdef.cloudfront.net`
 
 ---
 
@@ -1635,7 +1678,7 @@ Or use CloudFront default domain: `d1234abcdef.cloudfront.net`
 
 | Aspect | Current (GitHub) | AWS Rebuild |
 |--------|-----------------|-------------|
-| Database | Supabase (hosted PostgreSQL) | Aurora Serverless v2 (direct + Prisma pool) |
+| Database | Supabase (hosted PostgreSQL) | RDS db.t4g.micro PostgreSQL 15 (Prisma pool) |
 | Sessions | PostgreSQL table | DynamoDB (faster, auto-cleanup) |
 | Menu Cache | None (query DB every time) | DynamoDB + in-memory (< 5ms) |
 | Hosting | Vercel (implied) | EC2 t3.micro + Nginx + CloudFront |
@@ -1643,13 +1686,104 @@ Or use CloudFront default domain: `d1234abcdef.cloudfront.net`
 | LLM | GPT-4o-mini (OpenAI) | GPT-4o-mini (OpenAI) — same |
 | TTS | Klleon echo() | Klleon echo() — same |
 | Avatar | Klleon SDK v1.2.0 | Klleon SDK v1.2.0 — same |
-| DB Client | Supabase JS client + Prisma | Prisma only (direct Aurora connection) |
+| DB Client | Supabase JS client + Prisma | Prisma only (direct RDS connection) |
 | CI/CD | Manual / GitHub Actions | GitHub Actions → SSH deploy |
 | Secrets | .env.local file | AWS Secrets Manager |
 | Monitoring | Console logs | CloudWatch |
 | Payment | None | Mock payment system |
 | Upselling | Partial (meal conversion) | Full (detection, suggestions, pairings) |
 | NLP Prompt | Full menu per request (~800 tokens) | Compressed menu (~200 tokens) |
+
+---
+
+---
+
+## 19. Development Best Practices
+
+### Error Handling
+
+#### React Error Boundaries
+```typescript
+// components/ErrorBoundary.tsx — wraps each major section
+// Catches render errors in Avatar, Menu, Cart independently
+// Fallback: "Something went wrong. Tap to retry." with retry button
+// Avatar failure → graceful degradation to visual-only ordering
+```
+
+#### API Error Handling
+- All API routes return consistent shape: `{ success: boolean, data?, error? }`
+- NLP failures return fallback response (never crash the ordering flow)
+- DB connection failures log to CloudWatch and return cached data where possible
+- Client-side: toast notifications for transient errors, full-screen for critical
+
+#### Klleon Failure Graceful Degradation
+- If Klleon SDK fails to load → show visual-only mode (menu + touch ordering)
+- If STT fails → show text input fallback
+- If TTS fails → show text response in chat bubbles (no audio)
+- Never block the ordering flow due to avatar issues
+
+### Environment Variable Validation
+
+```typescript
+// lib/env.ts — validate ALL required env vars at startup
+const requiredVars = [
+  'OPENAI_API_KEY',
+  'DATABASE_URL',
+  'NEXT_PUBLIC_KLLEON_SDK_KEY',
+  'NEXT_PUBLIC_KLLEON_AVATAR_ID',
+];
+
+for (const key of requiredVars) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required env var: ${key}`);
+  }
+}
+```
+
+Import this in `app/layout.tsx` — app fails fast with a clear error
+message rather than silently breaking at runtime.
+
+### Security Headers
+
+```typescript
+// next.config.js — security headers
+headers: [
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'microphone=(self)' },
+]
+```
+
+### Logging Strategy
+
+| Level | What | Where |
+|-------|------|-------|
+| **error** | API failures, DB errors, Klleon crashes | CloudWatch + console |
+| **warn** | Fallback activations, slow responses (>2s) | CloudWatch |
+| **info** | Order created, NLP intent, session start/end | CloudWatch |
+| **debug** | STT results, full NLP prompts, cache hits/misses | Console only (dev) |
+
+Use structured JSON logging for CloudWatch parseability:
+```typescript
+console.log(JSON.stringify({ level: 'info', event: 'order_created', orderId, itemCount, total }));
+```
+
+### Code Organization Best Practices
+
+- **Barrel exports** (`index.ts`) in each component folder — clean imports
+- **Absolute imports** via `@/` path alias (already configured in tsconfig)
+- **Co-locate tests**: `ComponentName.test.tsx` next to `ComponentName.tsx`
+- **Type-safe API**: Shared types in `types/` used by both client and API routes
+- **No `any`**: TypeScript strict mode, explicitly type all Klleon SDK interactions
+- **Prisma type safety**: Use generated types from `npx prisma generate`
+
+### Git Workflow
+
+- `main` branch = production (auto-deploys to EC2)
+- `dev` branch = development (manual merge to main)
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`
+- PR required to merge to main (even for solo dev — creates audit trail)
 
 ---
 
