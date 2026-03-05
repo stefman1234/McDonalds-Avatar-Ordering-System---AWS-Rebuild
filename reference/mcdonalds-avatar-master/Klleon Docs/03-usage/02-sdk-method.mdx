@@ -1,0 +1,436 @@
+---
+id: sdk-method
+sidebar_position: 4
+title: SDK 메서드
+---
+
+import { Table } from "@site/src/components/table/Table";
+import { setup } from "@site/src/data/setup";
+import Head from "@docusaurus/Head";
+
+<Head>
+  <title>
+    {`Klleon Chat SDK 메서드 정리 - init, sendTextMessage, STT, Echo, 아바타 제어`}
+  </title>
+  <meta
+    name="description"
+    content="Klleon Chat SDK의 주요 메서드 사용법을 정리한 문서입니다. init, destroy, sendTextMessage, startStt, echo, changeAvatar 등 다양한 메서드를 통해 아바타와 실시간 대화 기능을 구현할 수 있습니다."
+  />
+  <meta
+    name="keywords"
+    content="Klleon Chat SDK, init, sendTextMessage, startStt, endStt, echo, startAudioEcho, changeAvatar, 웹 아바타 제어, 음성입력 STT, 텍스트 메시지 전송, 아바타 변경, 메시지 초기화, 자바스크립트 AI 챗봇, 클레온 SDK"
+  />
+</Head>
+
+# SDK 메서드
+
+Klleon Chat SDK는 웹 애플리케이션과의 다양한 상호작용을 위한 메서드들을 제공합니다. SDK 초기화부터 메시지 전송, 아바타 제어까지 주요 기능들을 이 문서에서 안내합니다.
+
+## SDK 라이프사이클
+
+SDK의 생명주기를 올바르게 관리하는 것은 리소스 누수를 방지하고 애플리케이션의 안정성을 확보하는 데 중요합니다.
+
+### `KlleonChat.init(options)`
+
+SDK를 초기화하고 서버와 연결을 준비합니다. 이 메서드는 애플리케이션 로드 시 한 번 호출되어야 합니다.
+
+**초기화 옵션 (`options`):**
+
+<Table columns={setup.ko.initOptionColumns} data={setup.ko.initOptionData} />
+
+:::caution 주의
+`KlleonChat.init()`는 SDK 인스턴스당 한 번만 호출하는 것을 권장합니다. SDK는 내부적으로 중복 초기화를 방지하는 로직을 포함하고 있어 여러 번 호출해도 최초 한 번만 정상적으로 초기화됩니다. 다만, 최적의 성능과 명확한 코드 관리를 위해 `init()`은 애플리케이션 로드 시 한 번만 호출하는 것이 좋습니다.
+:::
+
+### `KlleonChat.destroy()`
+
+SDK가 사용하던 모든 리소스(소켓 연결, WebRTC 연결, 이벤트 리스너 등)를 정리하고 SDK를 완전히 종료합니다.
+
+**사용 예시 (초기화 및 종료 통합):**
+
+```tsx title="App.tsx (SDK 라이프사이클 관리)"
+import { useEffect } from "react";
+
+const App = () => {
+  useEffect(() => {
+    const init = async () => {
+      const { KlleonChat } = window;
+
+      await KlleonChat.init({
+        sdk_key: "YOUR_SDK_KEY",
+        avatar_id: "YOUR_AVATAR_ID",
+        subtitle_code: "ko_kr",
+        voice_code: "ko_kr",
+        voice_tts_speech_speed: 1.0,
+        enable_microphone: true,
+        log_level: "debug",
+        custom_id: "YOUR_CUSTOM_ID",
+        user_key: "YOUR_USER_KEY",
+      });
+    };
+
+    return () => {
+      // KlleonChat SDK의 모든 리소스를 정리하고 종료합니다.
+      window.KlleonChat.destroy();
+    };
+  }, []);
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+    </div>
+  );
+};
+
+export default App;
+```
+
+## 메시지 전송
+
+### `KlleonChat.sendTextMessage(text)`
+
+사용자가 입력한 텍스트 메시지를 아바타에게 전송합니다.
+
+- **text** (string, 필수): 아바타에게 전송할 텍스트 메시지입니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (sendTextMessage)"
+import { useRef } from "react";
+
+const App = () => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSend = () => {
+    const text = inputRef.current?.value.trim();
+    if (text) {
+      window.KlleonChat.sendTextMessage(text);
+      inputRef.current.value = "";
+    }
+  };
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+      <input ref={inputRef} type="text" placeholder="메시지 입력" />
+      <button onClick={handleSend}>보내기</button>
+    </div>
+  );
+```
+
+## 음성 입력 (STT: Speech-to-Text)
+
+사용자의 음성을 텍스트로 변환하여 아바타에게 전달하는 기능입니다. `startStt()`로 음성 입력을 시작하고, `endStt()`로 입력을 마치고 전송합니다.
+
+:::info 마이크 권한
+음성 대화 기능을 사용하려면 브라우저에서 마이크 사용 권한이 필요합니다. `init()` 시 `enable_microphone: true` (기본값)로 설정하면 SDK가 마이크 연결을 시도합니다.
+:::
+
+### `KlleonChat.startStt()` / `KlleonChat.endStt()`
+
+- **`KlleonChat.startStt()`**: 마이크를 통해 음성 데이터 수집을 시작합니다.
+- **`KlleonChat.endStt()`**: 진행 중인 음성 데이터 수집을 중단하고, 수집된 음성을 텍스트로 변환하여 아바타에게 메시지로 전송합니다.
+
+**사용 예시**
+
+```tsx title="App.tsx (startStt, endStt)"
+import { useRef } from "react";
+
+const App = () => {
+  const recordButtonRef = useRef<HTMLButtonElement>(null);
+  const isRecording = useRef(false);
+
+  const handleRecord = () => {
+    if (!isRecording.current) {
+      window.KlleonChat.startStt();
+      isRecording.current = true;
+    }
+    if (isRecording.current) {
+      window.KlleonChat.endStt();
+      isRecording.current = false;
+    }
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <button ref={recordButtonRef} onClick={handleRecord}>
+        녹음 시작
+      </button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+## 아바타 발화 제어
+
+### `KlleonChat.cancelStt()`
+
+진행 중인 음성 입력(`startStt()` 호출 후 상태)을 취소합니다. 취소된 음성 데이터는 아바타에게 전송되지 않으며, 다시 음성 입력을 시작할 수 있는 상태가 됩니다. 사용자가 음성 입력 도중 내용을 취소하고 싶을 때 사용합니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (cancelStt)"
+import { useRef } from "react";
+
+const App = () => {
+  const recordButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const isRecording = useRef(false);
+
+  const handleRecord = () => {
+    if (!isRecording.current) {
+      window.KlleonChat.startStt();
+      isRecording.current = true;
+    }
+    if (isRecording.current) {
+      window.KlleonChat.endStt();
+      isRecording.current = false;
+    }
+  };
+
+  const handleCancel = () => {
+    window.KlleonChat.cancelStt();
+    isRecording.current = false;
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <button ref={recordButtonRef} onClick={handleRecord}>
+        녹음 시작
+      </button>
+      <button ref={cancelButtonRef} onClick={handleCancel}>
+        녹음 취소
+      </button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+### `KlleonChat.stopSpeech()`
+
+현재 아바타가 말하고 있는 음성(TTS) 출력을 즉시 중단시킵니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (stopSpeech)"
+import { useRef } from "react";
+
+const App = () => {
+  const recordButtonRef = useRef<HTMLButtonElement>(null);
+  const stopSpeechButtonRef = useRef<HTMLButtonElement>(null);
+  const isRecording = useRef(false);
+
+  const handleRecord = () => {
+    if (!isRecording.current) {
+      window.KlleonChat.startStt();
+      isRecording.current = true;
+    }
+    if (isRecording.current) {
+      window.KlleonChat.endStt();
+      isRecording.current = false;
+    }
+  };
+
+  const handleStopSpeech = () => {
+    window.KlleonChat.stopSpeech();
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <button ref={recordButtonRef} onClick={handleRecord}>
+        녹음 시작
+      </button>
+      <button ref={stopSpeechButtonRef} onClick={handleStopSpeech}>
+        음성 중지
+      </button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+## 에코 기능
+
+### `KlleonChat.echo(text)`
+
+제공된 `text` 문자열을 아바타가 그대로 발화(TTS)하도록 요청합니다.
+
+- **text** (string, 필수): 아바타가 발화할 문자열 메시지입니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (echo)"
+import { useRef } from "react";
+
+const App = () => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSend = () => {
+    const text = inputRef.current?.value.trim();
+    if (text) {
+      window.KlleonChat.echo(text);
+      inputRef.current.value = "";
+    }
+  };
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+      <input ref={inputRef} type="text" placeholder="메시지 입력" />
+      <button onClick={handleSend}>보내기</button>
+    </div>
+  );
+```
+
+### `KlleonChat.startAudioEcho(audio)` / `KlleonChat.endAudioEcho()`
+
+- **`KlleonChat.startAudioEcho(audio)`**: Base64로 인코딩된 `audio` 문자열 데이터를 서버로 전송하여 아바타가 해당 오디오를 발화하도록 요청합니다. `endAudioEcho()`를 호출하여 명시적으로 종료해야 합니다.
+  - `audio` (string, 필수): Base64로 인코딩된 오디오 데이터 문자열. (0.1MB 제한, 유효한 Base64)
+- **`KlleonChat.endAudioEcho()`**: 오디오 에코 세션을 종료하고 자연스러운 영상 전환을 위한 신호를 서버에 전송합니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (startAudioEcho, endAudioEcho)"
+import { useRef } from "react";
+
+const App = () => {
+  const audioInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleStartAudioEcho = () => {
+    const audioData = audioInputRef.current?.value.trim();
+    if (audioData) {
+      try {
+        window.KlleonChat.startAudioEcho(audioData);
+        console.log("오디오 에코 시작됨.");
+
+        // 오디오 전송 직후 바로 endAudioEcho 호출 (권장)
+        setTimeout(() => {
+          window.KlleonChat.endAudioEcho();
+          console.log("오디오 에코 종료됨.");
+        }, 100);
+      } catch (error) {
+        console.error("오디오 에코 시작 실패:", error);
+      }
+    }
+  };
+
+  const handleMultipleAudioEcho = async () => {
+    const audioList = [
+      "base64_audio_data_1",
+      "base64_audio_data_2",
+      "base64_audio_data_3",
+    ];
+
+    try {
+      // 여러 오디오를 연속으로 전송
+      for (const audio of audioList) {
+        await window.KlleonChat.startAudioEcho(audio);
+        console.log("오디오 전송됨:", audio);
+      }
+
+      // 마지막 오디오 전송 후 한 번만 endAudioEcho 호출
+      window.KlleonChat.endAudioEcho();
+      console.log("모든 오디오 에코 종료됨.");
+    } catch (error) {
+      console.error("오디오 에코 처리 실패:", error);
+    }
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+      <textarea
+        ref={audioInputRef}
+        placeholder="Base64 오디오 데이터 입력"
+        rows={4}
+        cols={50}
+      />
+      <button onClick={handleStartAudioEcho}>단일 오디오 에코</button>
+      <button onClick={handleMultipleAudioEcho}>연속 오디오 에코</button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+:::info End Audio Echo의 역할
+`endAudioEcho()`는 오디오 발화 완료 후 자연스러운 영상 전환을 위한 신호입니다.
+
+**호출하지 않을 경우:**
+
+- 급한 영상 전환이 발생할 수 있음
+- 일부 영상 모드에서 대기 영상으로 전환되지 않을 수 있음
+
+**권장 사용법:**
+
+- 오디오 전송 직후 바로 호출 (발화 완료 대기 불필요)
+- 여러 오디오 연속 전송 시 마지막 오디오 후 한 번만 호출
+  :::
+
+## 아바타 변경
+
+### `KlleonChat.changeAvatar(option)`
+
+현재 SDK 세션을 종료하고, 지정된 `option`으로 새로운 아바타와 새 세션을 시작합니다.
+
+**ChangeAvatarOption**:
+
+<Table
+  columns={setup.ko.changeAvatarOptionColumns}
+  data={setup.ko.changeAvatarOptionData}
+/>
+
+**사용 예시:**
+
+```tsx title="App.tsx (changeAvatar)"
+const App = () => {
+  const handleChangeAvatar = () => {
+    window.KlleonChat.changeAvatar({
+      avatar_id: "YOUR_AVATAR_ID",
+      subtitle_code: "en_us",
+      voice_code: "en_us",
+      voice_tts_speech_speed: 1.0,
+    });
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+      <button onClick={handleChangeAvatar}>아바타 변경</button>
+    </div>
+  );
+```
+
+## 메시지 목록 관리
+
+### `KlleonChat.clearMessageList()`
+
+SDK 내부의 메시지 목록 상태를 비웁니다. 주로 `<chat-container>`와 같은 SDK 제공 UI 웹 컴포넌트와 함께 사용할 때, 해당 컴포넌트에 표시된 메시지들을 화면에서 지우는 데 사용됩니다. 이 메서드는 대화의 기억(로그)을 서버에서 삭제하는 것이 아니라, 클라이언트 측 UI 표시용 메시지 배열을 초기화합니다.
+
+**사용 예시:**
+
+```tsx title="App.tsx (clearMessageList)"
+const App = () => {
+  const handleClearMessageList = () => {
+    window.KlleonChat.clearMessageList();
+  };
+
+  return (
+    <div>
+      <avatar-container />
+      <chat-container />
+      <button onClick={handleClearMessageList}>메시지 목록 초기화</button>
+    </div>
+  );
+```

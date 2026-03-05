@@ -1,0 +1,255 @@
+---
+id: ui-components
+sidebar_position: 3
+title: UI 컴포넌트 사용하기
+---
+
+import { Table } from "@site/src/components/table/Table";
+import { usage } from "@site/src/data/usage";
+import Head from "@docusaurus/Head";
+
+<Head>
+  <title>{`Klleon Chat SDK UI 컴포넌트 - 아바타 및 채팅 웹 컴포넌트 사용법`}</title>
+  <meta
+    name="description"
+    content="Klleon Chat SDK의 avatar-container와 chat-container 웹 컴포넌트를 사용하는 방법을 안내합니다. 속성 제어, 스타일 적용, React 연동 예제까지 확인해보세요."
+  />
+  <meta
+    name="keywords"
+    content="Klleon Chat SDK, 아바타 컴포넌트, 채팅 컴포넌트, 웹 컴포넌트, avatar-container, chat-container, React 연동, 스타일링, 속성 제어, JavaScript SDK, 디지털 휴먼 UI, 립싱크 컴포넌트, 음성 챗봇 UI, 클레온"
+  />
+</Head>
+
+# UI 컴포넌트 사용하기
+
+Klleon Chat SDK는 아바타 영상과 채팅 인터페이스를 위한 `<avatar-container />`와 `<chat-container />` 웹 컴포넌트를 제공합니다. 이 컴포넌트들은 HTML 태그처럼 사용하며, 속성(Props)을 통해 동작을 제어하고 CSS로 스타일을 적용할 수 있습니다.
+
+## `<avatar-container />`
+
+아바타의 실시간 스트리밍 영상이 표시되는 컨테이너입니다.
+
+**기본 사용법 및 주요 속성:**
+
+```tsx title="<avatar-container />"
+interface AvatarProps {
+  videoStyle?: CSSProperties;
+  volume?: number;
+}
+const avatarRef = useRef<HTMLElement & AvatarProps>(null);
+
+useEffect(() => {
+  avatarRef.current.videoStyle = {
+    borderRadius: "30px",
+    objectFit: "cover",
+  };
+  avatarRef.current.volume = 100;
+}, [])
+
+<avatar-container ref={avatarRef} class="your-class" />;
+```
+
+- `class`: 컴포넌트에 클래스를 추가합니다. className 속성은 사용 불가능합니다.
+- 다른 사용 가능한 속성은 아래 표를 참고하세요.
+
+**속성 (Props):**
+
+<Table
+  columns={usage.ko.avatarContainerPropsColumns}
+  data={usage.ko.avatarContainerPropsData}
+/>
+
+:::info videoStyle 동작 방식
+`videoStyle` 속성은 SDK가 내부적으로 비디오 스트림 요소에 직접 적용합니다.
+컴포넌트 외부 스타일(`style` 속성)과는 별개로, 비디오 화면 자체의 스타일을 제어할 수 있습니다.
+:::
+
+## `<chat-container />`
+
+사용자와 아바타 간의 대화 내용 표시 및 메시지 입력을 위한 채팅 인터페이스를 제공합니다.
+
+**기본 사용법 및 주요 속성:**
+
+```tsx title="<chat-container />"
+interface ChatProps {
+  delay?: number;
+  type?: "voice" | "text";
+  isShowCount?: boolean;
+}
+
+const chatRef = useRef<HTMLElement & ChatProps>(null);
+
+useEffect(() => {
+  chatRef.current.delay = 50;
+  chatRef.current.type = "text";
+  chatRef.current.isShowCount = true;
+}, [])
+
+<chat-container ref={chatRef} class="your-class" />;
+```
+
+- `class`: 컴포넌트에 클래스를 추가합니다. className 속성은 사용 불가능합니다.
+- 다른 사용 가능한 속성은 아래 표를 참고하세요.
+
+**속성 (Props):**
+
+<Table
+  columns={usage.ko.chatContainerPropsColumns}
+  data={usage.ko.chatContainerPropsData}
+/>
+
+:::tip 웹 컴포넌트 속성 사용법
+**HTML에서 설정:**
+
+- `video-style='{"borderRadius": "12px"}'`
+- `is-show-count` (true)
+- `is-show-count="false"` (false)
+
+**JavaScript에서 설정:**
+
+- `element.videoStyle = { borderRadius: "12px" }`
+- `element.isShowCount = true`
+
+**React에서 설정:**
+
+- `ref.current.videoStyle = { borderRadius: "12px" }`
+- `ref.current.isShowCount = true`
+
+웹 컴포넌트는 HTML에서는 kebab-case, JavaScript에서는 camelCase를 사용합니다.
+:::
+
+## UI 컴포넌트 통합 예시
+
+다음은 `<avatar-container />`와 `<chat-container />`를 함께 배치하여 일반적인 채팅 애플리케이션 레이아웃을 구성하는 예시입니다.
+
+<details>
+<summary>styles.ts</summary>
+```typescript title="styles.ts"
+import type { CSSProperties } from "react";
+
+export const wrapperStyle: CSSProperties = {
+  display: "flex",
+  gap: "20px",
+  padding: "20px",
+  backgroundColor: "white",
+  borderRadius: "12px",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+};
+
+export const avatarStyle: CSSProperties = {
+  width: "350px",
+  height: "550px",
+  borderRadius: "8px",
+  backgroundColor: "#e0e0e0",
+};
+
+export const chatStyle: CSSProperties = {
+  width: "350px",
+  height: "550px",
+  border: "1px solid #ccc",
+  borderRadius: "8px",
+};
+```
+</details>
+
+```html title="index.html (klleon-sdk 설치)"
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Klleon Chat SDK</title>
+    <script src="https://web.sdk.klleon.io/{VERSION}/klleon-chat.umd.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+```tsx title="App.tsx (UI 컴포넌트 배치 예시)"
+import { useEffect } from "react";
+import { wrapperStyle, avatarStyle, chatStyle } from "./styles";
+
+interface AvatarProps {
+  videoStyle?: CSSProperties;
+  volume?: number;
+}
+
+interface ChatProps {
+  delay?: number;
+  type?: "voice" | "text";
+  isShowCount?: boolean;
+}
+
+function App() {
+  const avatarRef = useRef<HTMLElement & AvatarProps>(null);
+  const chatRef = useRef<HTMLElement & ChatProps>(null);
+
+  useEffect(() => {
+    const { KlleonChat } = window;
+    const init = async () => {
+      await KlleonChat.init({
+        sdk_key: "YOUR_SDK_KEY",
+        avatar_id: "YOUR_AVATAR_ID",
+      });
+    };
+    init();
+
+    if (avatarRef.current) {
+      avatarRef.current.videoStyle = {
+        borderRadius: "30px",
+        objectFit: "cover",
+      };
+      avatarRef.current.volume = 100;
+    }
+
+    if (chatRef.current) {
+      chatRef.current.delay = 30;
+      chatRef.current.type = "text";
+      chatRef.current.isShowCount = true;
+    }
+
+    return () => {
+      KlleonChat.destroy();
+    };
+  }, []);
+
+  return (
+    <div style={wrapperStyle}>
+      <avatar-container ref={avatarRef} style={avatarStyle} />
+      <chat-container ref={chatRef} style={chatStyle} />
+    </div>
+  );
+}
+
+export default App;
+```
+
+:::tip SDK 초기화 정보
+위 통합 예제에서 SDK 초기화에 필요한 `{VERSION}`, `YOUR_SDK_KEY`, `YOUR_AVATAR_ID`는 실제 유효한 값으로 대체해야 합니다.
+SDK 설치 및 초기화에 대한 자세한 내용은 [시작하기](/docs/setup/getting-started) 문서를 참고하세요.
+:::
+
+:::info React에서의 class 속성
+이 웹 컴포넌트들은 React의 기본 `className` 대신 HTML 표준 `class` 속성을 사용합니다.
+
+**올바른 사용법:**
+
+```tsx
+<avatar-container class="my-avatar" />
+<chat-container class="my-chat" />
+```
+
+**잘못된 사용법:**
+
+```tsx
+<avatar-container className="my-avatar" /> // ❌ 작동하지 않음
+```
+
+[TypeScript](/docs/guides/typescript-support)를 사용하는 경우, 타입 정의에서 `className`을 제거하고 `class`만 허용하도록 설정되어 있습니다.
+:::

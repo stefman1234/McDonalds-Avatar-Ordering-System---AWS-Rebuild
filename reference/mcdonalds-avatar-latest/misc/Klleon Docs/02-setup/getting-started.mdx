@@ -1,0 +1,244 @@
+---
+id: getting-started
+sidebar_position: 2
+title: 시작하기
+sidebar_label: 시작하기
+---
+
+import Table from "@site/src/components/table/Table";
+import SetUpExample from "@site/src/components/example/SetUpExample";
+import { setup } from "@site/src/data/setup";
+import Head from "@docusaurus/Head";
+
+<Head>
+  <title>{`Klleon Chat SDK 시작하기 - 설치, 초기화, React 연동 예제`}</title>
+  <meta
+    name="description"
+    content="Klleon Chat SDK를 설치하고 웹에 아바타 채팅 기능을 연동하는 방법을 단계별로 안내합니다. 도메인 등록, SDK 키 발급, script 삽입, React 통합까지 실전 예제를 통해 쉽게 따라할 수 있습니다."
+  />
+  <meta
+    name="keywords"
+    content="Klleon Chat SDK, 디지털 휴먼 설치, 아바타 채팅 SDK, 웹 아바타 연동, JavaScript AI SDK, React 아바타 예제, LLM 연동, TTS 음성합성, 립싱크, SDK 초기화, 클레온 SDK, Vite React 연동, 챗봇 연동"
+  />
+</Head>
+
+# 시작하기
+
+Klleon Chat SDK를 사용하여 웹 애플리케이션에 아바타 채팅 기능을 통합하는 것은 매우 간단합니다. 이 가이드에서는 SDK를 사용하기 위한 사전 준비사항부터 설치, 그리고 기본적인 초기화 방법까지 단계별로 안내합니다.
+
+## 사전 준비 사항
+
+Klleon Chat SDK를 사용하기 전에 다음 준비가 필요합니다.
+
+1.  **클레온 스튜디오 계정**: SDK 기능을 사용하려면 [클레온 스튜디오](https://www.studio.klleon.io/) 계정이 필요합니다. 계정이 없으시다면 먼저 가입을 진행해 주세요.
+2.  **도메인 등록**: SDK를 사용할 웹사이트의 [도메인](https://www.studio.klleon.io/sdk)을 클레온 스튜디오에 등록해야 합니다.
+    - 로그인 후 'SDK 관리' 메뉴에서 등록할 수 있습니다.
+    - 도메인 등록 과정에 어려움이 있다면 `partnership@klleon.io`로 문의해 주세요.
+3.  **SDK 키 발급**: 도메인 등록 후, 해당 도메인에서 사용할 고유한 `sdk_key`가 발급됩니다. 이 키는 SDK 초기화 시 필요합니다.
+4.  **아바타 ID 확인**: 사용하고자 하는 아바타의 고유 `avatar_id`를 확인해야 합니다. 이 ID 또한 SDK 초기화 시 필요합니다. 클레온 스튜디오의 [(아바타 목록)](https://www.studio.klleon.io/avatar) 페이지에서 사용 가능한 아바타를 확인할 수 있으며, **이 페이지에서 ID 복사가 가능한 아바타만 SDK 연동에 사용할 수 있습니다.**
+
+## SDK 설치
+
+Klleon Chat SDK는 웹 페이지에 `<script>` 태그를 추가하는 방식으로 간편하게 설치할 수 있습니다.
+
+HTML 파일의 `<head>` 태그에 다음 스크립트 태그를 추가하세요.
+
+```html title="index.html (SDK 설치)"
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Klleon Chat SDK 시작하기</title>
+    {/* Klleon Chat SDK 스크립트 추가 ({VERSION}을 실제 버전으로 변경) */}
+    <script src="https://web.sdk.klleon.io/{VERSION}/klleon-chat.umd.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+:::tip SDK 버전 확인
+`{VERSION}` 부분에는 `X.Y.Z` 형식의 실제 SDK 버전을 입력해야 합니다. (예: `1.0.0`)
+사용 가능한 최신 SDK 버전은 클레온 스튜디오의 SDK 관리 페이지 또는 별도의 공지 채널을 통해 확인하실 수 있습니다. 항상 최신 버전을 사용하는 것을 권장하지만, 특정 버전 사용이 필요한 경우 해당 버전을 명시해주세요.
+:::
+
+## SDK 초기화
+
+SDK 스크립트가 로드된 후, `window.KlleonChat.init()` 메서드를 호출하여 SDK를 초기화할 수 있습니다. 초기화는 일반적으로 DOM이 준비된 후 또는 메인 애플리케이션 스크립트 내에서 수행합니다.
+
+가장 기본적인 초기화에는 `sdk_key`와 `avatar_id` 두 가지 옵션이 필수로 요구됩니다. (이벤트 리스너 등록 후 `init`을 호출하는 것을 권장합니다.)
+
+```tsx title="App.tsx (React)"
+import { useEffect } from "react";
+
+function App() {
+  useEffect(() => {
+    const { KlleonChat } = window;
+
+    const init = async () => {
+      // 1. Status 이벤트 리스너 등록
+      KlleonChat.onStatusEvent((status) => {
+        // 상세한 Status 값과 의미는 'usage > 이벤트 처리' 문서를 참고하세요.
+        if (status === "VIDEO_CAN_PLAY") {
+          console.log("아바타 영상 재생 준비 완료!");
+        }
+      });
+
+      // 2. Chat 이벤트 리스너 등록
+      KlleonChat.onChatEvent((chatData) => {
+        // 상세한 ChatData 구조와 chat_type은 'usage > 이벤트 처리' 문서를 참고하세요.
+        console.log("SDK Chat Event:", chatData);
+      });
+
+      // 3. SDK 초기화
+      await KlleonChat.init({
+        sdk_key: "YOUR_SDK_KEY",
+        avatar_id: "YOUR_AVATAR_ID",
+        // custom_id: "YOUR_CUSTOM_ID",
+        // user_key: "YOUR_USER_KEY",
+        // voice_code: "ko_kr",
+        // subtitle_code: "ko_kr",
+        // voice_tts_speech_speed: 1,
+        // enable_microphone: true,
+        // log_level: "debug",
+      });
+    };
+    init();
+  }, []);
+
+  return <></>;
+}
+
+export default App;
+```
+
+### 초기화 옵션 (`InitOption`)
+
+`init()` 메서드는 다양한 옵션을 객체 형태로 전달받아 SDK의 동작을 설정할 수 있습니다. 주요 옵션은 다음과 같습니다:
+
+<Table columns={setup.ko.initOptionColumns} data={setup.ko.initOptionData} />
+
+:::tip user_key 사용 안내
+`user_key`는 End-User API를 통해 관리되는 기능입니다. 사용을
+원하시면 클레온 스튜디오 가입 후 `partnership@klleon.io`로 문의하여 발급 및 사용
+방법을 안내 받으시기 바랍니다.
+:::
+
+## 바로 따라하기: 전체 예제
+
+다음은 Klleon Chat SDK를 웹 페이지에 설치하고, 이벤트를 등록하며, 초기화하는 가장 기본적인 예제입니다.  
+예시 환경은 VITE + React 입니다.  
+(실제 동작을 위해서는 `YOUR_SDK_KEY`와 `YOUR_AVATAR_ID`를 유효한 값으로 변경해야 합니다.)
+
+```html title="index.html"
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React</title>
+    <script src="https://web.sdk.klleon.io/1.0.0/klleon-chat.umd.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+```tsx title="App.tsx"
+import { useEffect, useRef, type CSSProperties } from "react";
+
+interface AvatarProps {
+  videoStyle?: CSSProperties;
+  volume?: number;
+}
+
+interface ChatProps {
+  delay?: number;
+  type?: "voice" | "text";
+  isShowCount?: boolean;
+}
+
+function App() {
+  const avatarRef = useRef<HTMLElement & AvatarProps>(null);
+  const chatRef = useRef<HTMLElement & ChatProps>(null);
+
+  useEffect(() => {
+    const { KlleonChat } = window;
+
+    const init = async () => {
+      // 1. Status 이벤트 리스너 등록
+      KlleonChat.onStatusEvent((status) => {
+        // 상세한 Status 값과 의미는 'usage > 이벤트 처리' 문서를 참고하세요.
+        if (status === "VIDEO_CAN_PLAY") {
+          console.log("아바타 영상 재생 준비 완료!");
+        }
+      });
+
+      // 2. Chat 이벤트 리스너 등록
+      KlleonChat.onChatEvent((chatData) => {
+        // 상세한 ChatData 구조와 chat_type은 'usage > 이벤트 처리' 문서를 참고하세요.
+        console.log("SDK Chat Event:", chatData);
+      });
+
+      // 3. SDK 초기화
+      await KlleonChat.init({
+        sdk_key: "YOUR_SDK_KEY",
+        avatar_id: "YOUR_AVATAR_ID",
+      });
+    };
+    init();
+
+    if (avatarRef.current) {
+      avatarRef.current.videoStyle = {
+        borderRadius: "30px",
+        objectFit: "cover",
+      };
+      avatarRef.current.volume = 100;
+    }
+
+    if (chatRef.current) {
+      chatRef.current.delay = 30;
+      chatRef.current.type = "text";
+      chatRef.current.isShowCount = true;
+    }
+
+    return () => {
+      KlleonChat.destroy();
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        width: "600px",
+        height: "720px",
+        gap: "0px 24px",
+      }}
+    >
+      <avatar-container
+        ref={avatarRef}
+        style={{ flex: 1 }}
+        class=""
+      ></avatar-container>
+      <chat-container
+        ref={chatRef}
+        style={{ flex: 1 }}
+        class="rounded-3xl"
+      ></chat-container>
+    </div>
+  );
+}
+
+export default App;
+```
+
+### 실제 동작 예시
+
+<SetUpExample />

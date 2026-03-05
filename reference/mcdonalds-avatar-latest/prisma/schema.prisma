@@ -1,0 +1,141 @@
+// This is your Prisma schema file
+// Auto-generated from McDonald's Avatar database schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model menu_items {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String              @db.VarChar(100)
+  category          String              @db.VarChar(50)
+  subcategory       String?             @db.VarChar(50)
+  description       String?
+  base_price        Decimal             @db.Decimal(5, 2)
+  image_url         String?             @db.VarChar(255)
+  calories          Int?
+  available         Boolean?            @default(true)
+  vegetarian        Boolean?            @default(false)
+  gluten_free       Boolean?            @default(false)
+  time_restriction  String?             @db.VarChar(20)
+  popular           Boolean?            @default(false)
+  tags              String[]
+  search_terms      String[]
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  menu_item_sizes   menu_item_sizes[]
+  order_items       order_items[]
+
+  @@index([category], map: "idx_menu_items_category")
+  @@index([available], map: "idx_menu_items_available")
+  @@index([time_restriction], map: "idx_menu_items_time")
+  @@index([popular], map: "idx_menu_items_popular")
+  @@index([tags], map: "idx_menu_items_tags")
+}
+
+model menu_item_sizes {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menu_item_id      String?    @db.Uuid
+  size_name         String     @db.VarChar(20)
+  price_modifier    Decimal?   @default(0.00) @db.Decimal(5, 2)
+  calories_modifier Int?       @default(0)
+  created_at        DateTime?  @default(now()) @db.Timestamp(6)
+  menu_items        menu_items? @relation(fields: [menu_item_id], references: [id], onDelete: Cascade)
+
+  @@index([menu_item_id], map: "idx_sizes_item")
+}
+
+model customization_options {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String    @db.VarChar(100)
+  category       String    @db.VarChar(50)
+  price_modifier Decimal?  @default(0.00) @db.Decimal(5, 2)
+  applicable_to  String?   @db.VarChar(100)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([category], map: "idx_customizations_category")
+}
+
+model combo_meals {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String    @db.VarChar(100)
+  description     String?
+  base_price      Decimal   @db.Decimal(5, 2)
+  discount_amount Decimal?  @default(0.00) @db.Decimal(5, 2)
+  includes        Json      @db.JsonB
+  image_url       String?   @db.VarChar(255)
+  popular         Boolean?  @default(false)
+  available       Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  order_items     order_items[]
+
+  @@index([popular], map: "idx_combo_popular")
+  @@index([available], map: "idx_combo_available")
+}
+
+model orders {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_number   String        @unique @db.VarChar(20)
+  customer_name  String?       @db.VarChar(100)
+  order_type     String        @db.VarChar(20)
+  status         String?       @default("pending") @db.VarChar(20)
+  subtotal       Decimal       @db.Decimal(8, 2)
+  tax            Decimal       @db.Decimal(8, 2)
+  total          Decimal       @db.Decimal(8, 2)
+  payment_method String?       @db.VarChar(50)
+  payment_status String?       @default("pending") @db.VarChar(20)
+  session_id     String?       @db.VarChar(100)
+  notes          String?
+  created_at     DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?     @default(now()) @db.Timestamp(6)
+  order_items    order_items[]
+  conversation_sessions conversation_sessions[]
+
+  @@index([status], map: "idx_orders_status")
+  @@index([created_at], map: "idx_orders_created")
+  @@index([order_number], map: "idx_orders_number")
+}
+
+model order_items {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id              String?      @db.Uuid
+  menu_item_id          String?      @db.Uuid
+  combo_meal_id         String?      @db.Uuid
+  quantity              Int          @default(1)
+  size                  String?      @db.VarChar(20)
+  unit_price            Decimal      @db.Decimal(5, 2)
+  line_total            Decimal      @db.Decimal(6, 2)
+  customizations        Json?        @db.JsonB
+  special_instructions  String?
+  created_at            DateTime?    @default(now()) @db.Timestamp(6)
+  orders                orders?      @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu_items            menu_items?  @relation(fields: [menu_item_id], references: [id])
+  combo_meals           combo_meals? @relation(fields: [combo_meal_id], references: [id])
+
+  @@index([order_id], map: "idx_order_items_order")
+  @@index([menu_item_id], map: "idx_order_items_menu")
+}
+
+model conversation_sessions {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id           String    @unique @db.VarChar(100)
+  order_id             String?   @db.Uuid
+  status               String?   @default("active") @db.VarChar(20)
+  conversation_history Json?     @db.JsonB
+  current_step         String?   @db.VarChar(50)
+  context_data         Json?     @db.JsonB
+  started_at           DateTime? @default(now()) @db.Timestamp(6)
+  last_activity_at     DateTime? @default(now()) @db.Timestamp(6)
+  ended_at             DateTime? @db.Timestamp(6)
+  orders               orders?   @relation(fields: [order_id], references: [id])
+
+  @@index([status], map: "idx_sessions_status")
+  @@index([last_activity_at], map: "idx_sessions_activity")
+  @@index([session_id], map: "idx_sessions_id")
+}

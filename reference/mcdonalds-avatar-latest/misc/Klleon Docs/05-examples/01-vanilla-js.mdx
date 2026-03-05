@@ -1,0 +1,240 @@
+---
+id: vanilla-js
+title: Vanilla JS 기본 예제
+sidebar_label: Base Vanilla JS Example
+---
+
+import Head from "@docusaurus/Head";
+
+<Head>
+  <title>{`Klleon Chat SDK Vanilla JS 예제 - index.html 단일 파일 실행`}</title>
+  <meta
+    name="description"
+    content="Klleon Chat SDK를 설치 없이 바로 사용할 수 있는 Vanilla JS 예제를 제공합니다. index.html 한 개 파일로 SDK 초기화, 아바타 메시지 전송, echo 발화까지 테스트할 수 있습니다."
+  />
+  <meta
+    name="keywords"
+    content="Klleon Chat SDK, Vanilla JS, SDK 예제, index.html 실행, 자바스크립트 챗봇, 아바타 메서드, sendTextMessage, echo, sdk 초기화, script 태그 연동, 디지털 휴먼, 클레온"
+  />
+</Head>
+
+# Vanilla JS 전체 예제
+
+아래 코드를 `index.html` 파일로 저장하고, `{VERSION}`, `YOUR_SDK_KEY`, `YOUR_AVATAR_ID`를 실제 값으로 변경한 후 웹 브라우저에서 실행해 보세요. SDK의 상태 변경 및 이벤트는 브라우저의 개발자 콘솔에서 확인할 수 있습니다.
+
+```html title="index.html"
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Klleon Chat SDK - Vanilla JS 최소 예제</title>
+    {/* TODO: {VERSION}을 실제 SDK 버전으로 변경하세요. (예: 1.2.0) */}
+    <script src="https://web.sdk.klleon.io/{VERSION}/klleon-chat.umd.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f4f4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .container {
+        display: flex;
+        width: 900px;
+        max-width: 100%;
+        height: 600px;
+        gap: 20px;
+        margin-top: 20px;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        box-sizing: border-box;
+      }
+      .avatar-section {
+        flex: 2;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .chat-controls-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      avatar-container {
+        width: 100%;
+        height: 100%;
+        background-color: #e0e0e0;
+      }
+      chat-container {
+        height: 400px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: #fff;
+      }
+      .input-group {
+        display: flex;
+        margin-bottom: 10px;
+      }
+      .input-group label {
+        margin-right: 5px;
+        align-self: center;
+        width: 40px;
+      }
+      .input-group input[type="text"] {
+        flex-grow: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px 0 0 4px;
+        outline: none;
+      }
+      .input-group button {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-left: none;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        border-radius: 0 4px 4px 0;
+      }
+      .input-group button:hover {
+        background-color: #0056b3;
+      }
+      h1 {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Klleon Chat SDK - 메서드 테스트</h1>
+
+    <div class="container">
+      <div class="avatar-section">
+        <avatar-container
+          volume="100"
+          videoStyle='{"borderRadius": "24px"}'
+        ></avatar-container>
+      </div>
+      <div class="chat-controls-section">
+        <chat-container
+          delay="30"
+          type="text"
+          isShowCount="true"
+        ></chat-container>
+        <div class="input-group">
+          <label for="messageInput">text:</label>
+          <input
+            type="text"
+            id="messageInput"
+            placeholder="전송할 메시지 입력..."
+          />
+          <button id="sendMessageBtn">전송</button>
+        </div>
+        <div class="input-group">
+          <label for="echoInput">echo:</label>
+          <input
+            type="text"
+            id="echoInput"
+            placeholder="아바타가 발화할 내용..."
+          />
+          <button id="echoBtn">발화</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        // TODO: 아래 YOUR_SDK_KEY와 YOUR_AVATAR_ID를 실제 발급받은 값으로 변경하세요.
+        const sdkKey = "YOUR_SDK_KEY";
+        const avatarId = "YOUR_AVATAR_ID";
+
+        const messageInput = document.getElementById("messageInput");
+        const sendMessageBtn = document.getElementById("sendMessageBtn");
+        const echoInput = document.getElementById("echoInput");
+        const echoBtn = document.getElementById("echoBtn");
+
+        if (!window.KlleonChat) {
+          console.error(
+            "Klleon Chat SDK가 로드되지 않았습니다. HTML의 script 태그를 확인하세요."
+          );
+          return;
+        }
+
+        console.log("SDK 로드 확인됨. 초기화를 시도합니다...");
+
+        try {
+          // 이벤트 리스너 먼저 등록
+          window.KlleonChat.onStatusEvent((status) => {
+            console.log(`SDK Status Event: ${status}`);
+            if (status === "VIDEO_CAN_PLAY") {
+              console.log("아바타 영상 재생 준비 완료! SDK 메서드 사용 가능.");
+            }
+          });
+
+          window.KlleonChat.onChatEvent((chatData) => {
+            console.log(`SDK Chat Event: ${JSON.stringify(chatData)}`);
+          });
+
+          // SDK 초기화
+          await window.KlleonChat.init({
+            sdk_key: sdkKey,
+            avatar_id: avatarId,
+            log_level: "info",
+          });
+          console.log("SDK 초기화 성공!");
+
+          sendMessageBtn.addEventListener("click", () => {
+            const message = messageInput.value.trim();
+            if (message) {
+              try {
+                window.KlleonChat.sendTextMessage(message);
+                console.log(`sendTextMessage 호출: "${message}"`);
+                messageInput.value = "";
+              } catch (error) {
+                console.error(
+                  `sendTextMessage 오류: ${error.message || error}`
+                );
+              }
+            }
+          });
+
+          echoBtn.addEventListener("click", () => {
+            const textToEcho = echoInput.value.trim();
+            if (textToEcho) {
+              try {
+                window.KlleonChat.echo(textToEcho);
+                console.log(`echo 호출: "${textToEcho}"`);
+                echoInput.value = "";
+              } catch (error) {
+                console.error(`echo 오류: ${error.message || error}`);
+              }
+            }
+          });
+        } catch (error) {
+          // init 또는 이벤트 리스너 등록 중 발생한 오류
+          console.error(
+            `SDK 초기화 또는 이벤트 리스너 설정 실패: ${error.message || error}`
+          );
+        }
+
+        window.addEventListener("beforeunload", () => {
+          if (
+            window.KlleonChat &&
+            typeof window.KlleonChat.destroy === "function"
+          ) {
+            console.log("페이지 이탈 전 SDK 리소스를 정리합니다.");
+            window.KlleonChat.destroy();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+```

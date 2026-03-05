@@ -1,0 +1,385 @@
+---
+id: custom-react
+title: React 커스텀 예제
+sidebar_label: Custom React Example
+---
+
+import CustomReactExample from "@site/src/components/example/CustomReactExample";
+import Head from "@docusaurus/Head";
+
+<Head>
+  <title>{`React 커스텀 예제 - Klleon Chat SDK 고급 사용법 (웹 컴포넌트 없이)`}</title>
+  <meta
+    name="description"
+    content="웹 컴포넌트를 사용하지 않고 Klleon Chat SDK의 모든 기능을 React에서 직접 구현하는 고급 예제입니다. 상태 기반 제어, STT, echo, changeAvatar 등 SDK 메서드를 통해 자유로운 UI를 구성할 수 있습니다."
+  />
+  <meta
+    name="keywords"
+    content="Klleon Chat SDK, React 커스텀 예제, 웹 컴포넌트 없이, SDK 메서드 호출, STT, echo, stopSpeech, changeAvatar, 아바타 제어, 상태 기반 채팅 UI, 클레온 SDK, 자바스크립트 아바타 챗봇"
+  />
+</Head>
+
+# React 커스텀 예제
+
+이 예제는 Klleon Chat SDK의 웹 컴포넌트를 사용하지 않고, 클라이언트 측에서 직접 제어하는 커스텀 채팅 인터페이스 구현 방법을 보여줍니다. SDK 이벤트와 메서드를 활용해 UI를 자유롭게 구성할 수 있습니다.
+
+## 주요 특징
+
+- **UI 직접 구현**: SDK 기본 컴포넌트 없이 React 기반 UI 구성
+- **실시간 상태 반영**: SDK 이벤트를 통해 UI 자동 갱신
+- **메서드 직접 호출**: 주요 기능을 명확히 테스트 및 제어 가능
+- **발화 상태에 따른 입력 제어**: 아바타 상태에 따른 UX 개선
+
+## 사전 준비
+
+### SDK 스크립트 추가
+
+`public/index.html`의 `<head>` 영역에 아래 스크립트를 추가하세요.  
+`{VERSION}`은 실제 SDK 버전으로 대체합니다 (예: 1.2.0).
+
+```html title="public/index.html"
+<script src="https://web.sdk.klleon.io/{VERSION}/klleon-chat.umd.js"></script>
+```
+
+## 커스텀 React 컴포넌트
+
+<details>
+<summary>CSS 스타일</summary>
+
+```css title="custom-react-example.css"
+.custom-react-example-page {
+  display: flex;
+  width: 100%;
+  gap: 24px;
+  height: 720px;
+
+  .klleon-chat-container {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+
+    .avatar-container {
+      flex: 1;
+    }
+
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow-y: auto;
+      border-radius: 24px;
+      border: 1px solid #ccc;
+      padding: 12px;
+      gap: 12px;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: grey;
+        color: #fff;
+        padding: 12px;
+        border-radius: 12px;
+      }
+    }
+  }
+
+  .control-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 12px;
+
+    .log-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .method-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 12px;
+
+      input {
+        width: 320px;
+      }
+
+      .horizontal-control-item {
+        display: flex;
+        gap: 12px;
+      }
+
+      .vertical-control-item {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+    }
+  }
+}
+```
+
+</details>
+
+```tsx title="App.tsx"
+import { ChatData, ResponseChatType, Status } from "@site/src/types/global";
+import { CSSProperties, useEffect, useRef, useState } from "react";
+
+interface AvatarProps {
+  videoStyle?: CSSProperties;
+  volume?: number;
+}
+
+const SDK_KEY = "YOUR_SDK_KEY";
+const AVATAR_ID = "YOUR_AVATAR_ID";
+
+const App = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<Status>("IDLE");
+  const [chatData, setChatData] = useState<ChatData[]>([]);
+  const [chatType, setChatType] = useState<ResponseChatType>();
+  const [message, setMessage] = useState("");
+  const [echoMessage, setEchoMessage] = useState("");
+  const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [guideText, setGuideText] = useState(
+    "start chat 버튼을 통해 연결해주세요"
+  );
+
+  const avatarContainerRef = useRef<HTMLElement & AvatarProps>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (avatarContainerRef.current) {
+      avatarContainerRef.current.videoStyle = {
+        borderRadius: "24px",
+        objectFit: "cover",
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      const observer = new MutationObserver(() => {
+        chatContainerRef.current?.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+
+      observer.observe(chatContainerRef.current, {
+        childList: true,
+        subtree: true,
+      });
+    }
+  }, [chatContainerRef.current]);
+
+  const sdkHandler = {
+    startChat: async () => {
+      const { KlleonChat } = window;
+
+      KlleonChat.onStatusEvent((status) => {
+        setStatus(status);
+        setIsLoading(status !== "VIDEO_CAN_PLAY");
+      });
+
+      KlleonChat.onChatEvent((chatData) => {
+        setChatType(chatData.chat_type);
+        setChatData((prev) => [...prev, chatData]);
+        if (chatData.chat_type === "PREPARING_RESPONSE") {
+          setIsAvatarSpeaking(true);
+          setGuideText("아바타가 답변을 준비중입니다. 잠시만 기다려주세요.");
+        }
+        if (chatData.chat_type === "TEXT") {
+          setGuideText(
+            "아바타가 발화중입니다. stopSpeech로 취소할 수 있습니다."
+          );
+        }
+        if (chatData.chat_type === "RESPONSE_IS_ENDED") {
+          setIsAvatarSpeaking(false);
+          setGuideText(
+            "아바타가 발화를 완료했습니다. 대화를 계속하려면 메세지를 입력하세요."
+          );
+        }
+      });
+
+      await KlleonChat.init({
+        sdk_key: SDK_KEY,
+        avatar_id: AVATAR_ID,
+      });
+      setGuideText("연결이 완료되었습니다.");
+    },
+    disconnect: () => {
+      const { KlleonChat } = window;
+      KlleonChat.destroy();
+      setGuideText(
+        "연결이 해제되었습니다. start chat 버튼을 통해 연결해주세요"
+      );
+    },
+    sendTextMessage: () => {
+      const { KlleonChat } = window;
+      KlleonChat.sendTextMessage(message);
+      setMessage("");
+    },
+    startStt: () => {
+      const { KlleonChat } = window;
+      KlleonChat.startStt();
+      setGuideText(
+        "음성 녹음 중입니다. endStt로 완료하거나 cancelStt로 취소하세요."
+      );
+    },
+    endStt: () => {
+      const { KlleonChat } = window;
+      KlleonChat.endStt();
+      setGuideText("음성 녹음이 종료되었습니다");
+    },
+    cancelStt: () => {
+      const { KlleonChat } = window;
+      KlleonChat.cancelStt();
+      setGuideText("음성녹음 상태(startStt)가 취소합니다.");
+    },
+    stopSpeech: () => {
+      const { KlleonChat } = window;
+      if (chatType === "PREPARING_RESPONSE") {
+        setGuideText("아바타 답변 준비중에는 중단할 수 없습니다.");
+        return;
+      }
+      KlleonChat.stopSpeech();
+      setGuideText("아바타의 발화를 중단합니다.");
+    },
+    clearMessage: () => {
+      setChatData([]);
+    },
+    clearMessageList: () => {
+      const { KlleonChat } = window;
+      KlleonChat.clearMessageList();
+    },
+    echo: () => {
+      const { KlleonChat } = window;
+      KlleonChat.echo(echoMessage);
+      setEchoMessage("");
+    },
+    changeAvatar: () => {
+      const { KlleonChat } = window;
+      const avatarList = [
+        "Avatar_ID_1",
+        "Avatar_ID_2",
+        "Avatar_ID_3",
+        "Avatar_ID_4",
+      ];
+      const randomAvatarId =
+        avatarList[Math.floor(Math.random() * avatarList.length)];
+      KlleonChat.changeAvatar({
+        avatar_id: randomAvatarId,
+      });
+      setGuideText("아바타가 변경되었습니다.");
+    },
+  };
+
+  return (
+    <div className="custom-react-example-page">
+      <div className="klleon-chat-container">
+        <avatar-container ref={avatarContainerRef} class="avatar-container" />
+        <div
+          ref={chatContainerRef}
+          className="chat-container"
+          style={{
+            opacity: status === "VIDEO_CAN_PLAY" ? 1 : 0,
+          }}
+        >
+          {chatData.map((item) => (
+            <div className="chat-item" key={item.id}>
+              <h5>ChatType: {item.chat_type}</h5>
+              <h6>Message: {item.message}</h6>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="control-container">
+        <div className="log-container">
+          {isLoading && <h5>loading...</h5>}
+          <h5>Guide: {guideText}</h5>
+          <h5>Status: {status}</h5>
+        </div>
+        <div className="method-container">
+          <div className="horizontal-control-item">
+            <label>SDK 라이프사이클: </label>
+            <button onClick={sdkHandler.startChat}>start chat</button>
+            <button onClick={sdkHandler.disconnect}>disconnect</button>
+          </div>
+          <div className="horizontal-control-item">
+            <label>텍스트 메세지 전송: </label>
+            <div className="vertical-control-item">
+              <input
+                placeholder={
+                  isAvatarSpeaking
+                    ? "아바타가 발화중입니다. 발화가 종료되면 메세지를 입력해주세요."
+                    : "메세지를 입력하세요."
+                }
+                value={message}
+                disabled={isAvatarSpeaking}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    sdkHandler.sendTextMessage();
+                  }
+                }}
+              />
+              <button onClick={sdkHandler.sendTextMessage}>
+                sendTextMessage
+              </button>
+            </div>
+          </div>
+          <div className="horizontal-control-item">
+            <label>음성 메세지 전송: </label>
+            <button onClick={sdkHandler.startStt}>startStt</button>
+            <button onClick={sdkHandler.endStt}>endStt</button>
+          </div>
+          <div className="horizontal-control-item">
+            <label>메세지 제어</label>
+            <button onClick={sdkHandler.cancelStt}>cancelStt</button>
+            <button onClick={sdkHandler.stopSpeech}>stopSpeech</button>
+            <button onClick={sdkHandler.clearMessage}>clearMessage</button>
+          </div>
+          <div className="horizontal-control-item">
+            <label>에코 기능</label>
+            <div className="vertical-control-item">
+              <input
+                placeholder={
+                  isAvatarSpeaking
+                    ? "아바타가 발화중입니다. 발화가 종료되면 메세지를 입력해주세요."
+                    : "메세지를 입력하세요."
+                }
+                value={echoMessage}
+                disabled={isAvatarSpeaking}
+                onChange={(e) => setEchoMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    sdkHandler.echo();
+                  }
+                }}
+              />
+              <button onClick={sdkHandler.echo}>echo</button>
+            </div>
+          </div>
+          <div className="horizontal-control-item">
+            <label>아바타 변경</label>
+            <button onClick={sdkHandler.changeAvatar}>changeAvatar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
+```
+
+## 실행 예시
+
+<CustomReactExample />
