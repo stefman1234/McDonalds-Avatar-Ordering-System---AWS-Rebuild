@@ -163,7 +163,7 @@ describe("Multi-Step Conversations", () => {
 
     const r4 = await s.send("wait, make those medium fries instead of large");
     expectValid(r4);
-    expect(["modify", "add", "remove"]).toContain(r4.action);
+    expect(["modify", "modify_size", "add", "remove"]).toContain(r4.action);
 
     const r5 = await s.send("add a sprite too");
     expectValid(r5);
@@ -416,8 +416,12 @@ describe("Upgrade & Upsell Scenarios", () => {
 
     const r2 = await s.send("can you upsize the fries to large");
     expectValid(r2);
-    expect(["modify", "add", "remove"]).toContain(r2.action);
-    expect(r2.items.some(i => i.name.toLowerCase().includes("large") && i.name.toLowerCase().includes("fries"))).toBe(true);
+    expect(["modify", "modify_size", "add", "remove"]).toContain(r2.action);
+    // With modify_size, GPT may use newSize field instead of embedding "large" in item name
+    expect(r2.items.some(i =>
+      (i.name.toLowerCase().includes("large") && i.name.toLowerCase().includes("fries")) ||
+      (i.name.toLowerCase().includes("fries") && (i as any).newSize?.toLowerCase() === "large")
+    )).toBe(true);
 
     const r3 = await s.send("that's it");
     expectValid(r3);
@@ -434,12 +438,13 @@ describe("Upgrade & Upsell Scenarios", () => {
 
     const r2 = await s.send("actually make that a large coke");
     expectValid(r2);
-    expect(["modify", "add"]).toContain(r2.action);
-    // The LLM may name it "Large Coca-Cola" or just "Coca-Cola" with size context
+    expect(["modify", "modify_size", "add"]).toContain(r2.action);
+    // The LLM may name it "Large Coca-Cola" or just "Coca-Cola" with size context or newSize field
     expect(r2.items.some(i =>
       i.name.toLowerCase().includes("large") ||
       i.name.toLowerCase().includes("coke") ||
-      i.name.toLowerCase().includes("coca")
+      i.name.toLowerCase().includes("coca") ||
+      (i as any).newSize?.toLowerCase() === "large"
     )).toBe(true);
 
     const r3 = await s.send("done");
@@ -831,7 +836,7 @@ describe("Correction & Context Intelligence", () => {
 
     const r2 = await s.send("switch the coke to a sprite");
     expectValid(r2);
-    expect(["modify", "add", "remove"]).toContain(r2.action);
+    expect(["modify", "modify_size", "add", "remove"]).toContain(r2.action);
     expect(r2.items.some(i => i.name.toLowerCase().includes("sprite"))).toBe(true);
 
     const r3 = await s.send("perfect, done");

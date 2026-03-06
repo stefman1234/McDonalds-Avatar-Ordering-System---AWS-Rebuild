@@ -27,6 +27,7 @@ interface KlleonSDK {
   endStt(): void;
   cancelStt(): void;
   stopSpeech(): void;
+  wakeUpAvatar(): void;
   onStatusEvent(callback: (status: string) => void): void;
   onChatEvent(callback: (data: KlleonChatData) => void): void;
   clearMessageList(): void;
@@ -50,6 +51,8 @@ let currentlyListening = false;
 // When true, we block Klleon's built-in LLM responses (TEXT, PREPARING_RESPONSE)
 // because we use our own NLP pipeline via echo()
 let blockKlleonLLM = false;
+// When true, the avatar has entered idle/sleep mode and needs wakeUpAvatar() before interaction
+let inLongWait = false;
 
 function log(level: "info" | "warn" | "error", ...args: any[]) {
   const prefix = `[Klleon ${new Date().toISOString().slice(11, 23)}]`;
@@ -122,6 +125,10 @@ export async function initAvatar(): Promise<void> {
           log("info", "VIDEO_CAN_PLAY — avatar video is ready!");
           videoReadyCallback?.();
         }
+      }
+      if (status === "START_LONG_WAIT") {
+        inLongWait = true;
+        log("info", "Avatar entered long wait (idle) — will wake on next interaction");
       }
     });
 
@@ -200,22 +207,46 @@ export function speak(text: string): void {
     return;
   }
   log("info", `echo(): "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" (videoReady=${videoReady})`);
-  try {
-    const result: any = window.KlleonChat.echo(text);
-    if (result && typeof result.catch === "function") {
-      result.catch((err: any) => {
-        log("error", "echo() promise rejected:", err);
-      });
+
+  // Small delay to let Klleon finish any active STT/LLM cycle before we echo
+  const doEcho = () => {
+    try {
+      wakeIfNeeded();
+      // Reset LLM block so our echo isn't interfered with
+      blockKlleonLLM = false;
+      window.KlleonChat.stopSpeech();
+      const result: any = window.KlleonChat.echo(text);
+      if (result && typeof result.catch === "function") {
+        result.catch((err: any) => {
+          log("error", "echo() promise rejected:", err);
+        });
+      }
+    } catch (err) {
+      log("error", "echo() threw:", err);
     }
-  } catch (err) {
-    log("error", "echo() threw:", err);
-  }
+  };
+
+  // Delay echo slightly to avoid collision with active STT/LLM cycle
+  setTimeout(doEcho, 150);
 }
 
 export function stopSpeech(): void {
   if (!isAvatarReady()) return;
   log("info", "stopSpeech()");
   window.KlleonChat.stopSpeech();
+}
+
+// Wake the avatar if it entered long wait (idle) mode
+function wakeIfNeeded(): void {
+  if (inLongWait) {
+    log("info", "Waking avatar from long wait...");
+    try {
+      window.KlleonChat.wakeUpAvatar();
+    } catch (err) {
+      log("warn", "wakeUpAvatar() failed:", err);
+    }
+    inLongWait = false;
+  }
 }
 
 // Klleon STT: startStt() begins microphone recording
@@ -225,6 +256,7 @@ export function startStt(): boolean {
     return false;
   }
   try {
+    wakeIfNeeded();
     window.KlleonChat.startStt();
     currentlyListening = true;
     log("info", "startStt() — recording started");
@@ -289,5 +321,6 @@ export function destroyAvatar(): void {
     avatarInitialized = false;
     videoReady = false;
     currentlyListening = false;
+    inLongWait = false;
   }
 }

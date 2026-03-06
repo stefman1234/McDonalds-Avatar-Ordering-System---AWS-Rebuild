@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
@@ -19,7 +19,7 @@ export async function PUT(
 ) {
   const { id } = await params;
   const updates = await request.json();
-  const session = updateSession(id, updates);
+  const session = await updateSession(id, updates);
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }

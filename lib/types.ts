@@ -24,6 +24,26 @@ export interface CategoryDTO {
   items: MenuItemDTO[];
 }
 
+export interface MealSideOption {
+  id: string;
+  name: string;
+  priceModifier: number;
+}
+
+export interface MealDrinkOption {
+  id: string;
+  name: string;
+  priceModifier: number;
+  iceLevel?: "none" | "less" | "full";
+}
+
+export interface CartItemCustomization {
+  id: string;
+  name: string;
+  category: string;
+  priceModifier: number;
+}
+
 export interface CartItem {
   id: string; // unique cart line ID
   menuItemId: number;
@@ -32,10 +52,18 @@ export interface CartItem {
   unitPrice: number;
   customizations: string[];
   imageUrl: string | null;
+  // Meal composition fields (optional — only set via CustomizationModal or voice meal flow)
+  isCombo?: boolean;
+  mealSize?: "medium" | "large" | null;
+  mealSide?: MealSideOption | null;
+  mealDrink?: MealDrinkOption | null;
+  selectedSize?: { id: string; name: string; priceModifier: number } | null;
+  specialInstructions?: string;
+  richCustomizations?: CartItemCustomization[];
 }
 
 export interface NLPOrderIntent {
-  action: "add" | "remove" | "modify" | "clear" | "checkout" | "meal_response" | "unknown";
+  action: "add" | "remove" | "modify" | "modify_size" | "undo" | "clear" | "checkout" | "meal_response" | "info" | "unknown";
   items: NLPOrderItem[];
   clarificationNeeded?: string;
   response: string;
@@ -51,6 +79,8 @@ export interface NLPOrderItem {
   unitPrice?: number;
   categoryName?: string;
   originalName?: string; // for modify actions
+  newSize?: string; // for modify_size actions
+  newQuantity?: number; // for quantity corrections
 }
 
 export interface ChatMessage {

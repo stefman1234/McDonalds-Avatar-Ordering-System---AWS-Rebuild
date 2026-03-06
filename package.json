@@ -28,6 +28,8 @@
   },
   "homepage": "https://github.com/stefman1234/McDonalds-Avatar-Ordering-System---AWS-Rebuild#readme",
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1003.0",
+    "@aws-sdk/lib-dynamodb": "^3.1003.0",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "framer-motion": "^12.35.0",
@@ -56,6 +58,7 @@
     "prisma": "^7.4.2",
     "tailwindcss": "^4.2.1",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }

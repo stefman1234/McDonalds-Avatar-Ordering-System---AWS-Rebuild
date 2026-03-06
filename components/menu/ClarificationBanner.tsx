@@ -24,10 +24,10 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
           {type === "ambiguous" && (
             <>
               <p className="text-sm text-gray-900 mb-2">
-                Did you mean one of these?
+                Did you mean one of these? Tap or say the number:
               </p>
               <div className="flex flex-wrap gap-2">
-                {candidates.map((item) => (
+                {candidates.map((item, index) => (
                   <button
                     key={item.id}
                     onClick={() => {
@@ -36,6 +36,7 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
                     }}
                     className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:bg-mcdonalds-yellow/20 hover:border-mcdonalds-yellow transition-colors"
                   >
+                    <span className="text-mcdonalds-red font-bold mr-1">{index + 1}.</span>
                     {item.name} - ${item.price.toFixed(2)}
                   </button>
                 ))}
@@ -46,15 +47,22 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
           {type === "size_needed" && (
             <>
               <p className="text-sm text-gray-900 mb-2">
-                What size would you like for your {originalQuery}?
+                What size would you like for your {originalQuery}? Tap or say the size:
               </p>
               <div className="flex gap-2">
-                {["Small", "Medium", "Large"].map((size) => (
+                {["Small", "Medium", "Large"].map((size, index) => (
                   <button
                     key={size}
-                    onClick={() => dismiss()}
+                    onClick={() => {
+                      // Select the first candidate with this size preference
+                      if (candidates.length > 0) {
+                        onSelectItem(candidates[0].id);
+                      }
+                      dismiss();
+                    }}
                     className="px-4 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:bg-mcdonalds-yellow/20 hover:border-mcdonalds-yellow transition-colors"
                   >
+                    <span className="text-mcdonalds-red font-bold mr-1">{index + 1}.</span>
                     {size}
                   </button>
                 ))}

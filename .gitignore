@@ -35,3 +35,12 @@ next-env.d.ts
 
 # prisma
 /lib/generated/
+
+# debug logs
+conversation-debug.log
+
+# claude code
+.claude/
+
+# memory files (personal notes)
+MEMORY.md

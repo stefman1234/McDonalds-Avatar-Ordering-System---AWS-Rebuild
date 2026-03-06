@@ -7,9 +7,7 @@ export async function GET() {
     return NextResponse.json(categories);
   } catch (error) {
     console.error("Failed to fetch menu:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch menu" },
-      { status: 500 }
-    );
+    // Return empty array so the client doesn't crash on .flatMap()
+    return NextResponse.json([]);
   }
 }
