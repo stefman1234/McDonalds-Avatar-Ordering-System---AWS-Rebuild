@@ -42,5 +42,3 @@ conversation-debug.log
 # claude code
 .claude/
 
-# memory files (personal notes)
-MEMORY.md
