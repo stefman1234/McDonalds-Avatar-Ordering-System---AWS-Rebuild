@@ -12,9 +12,11 @@ interface CartItemProps {
 export default function CartItem({ item }: CartItemProps) {
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
+  const getItemTotal = useCartStore((s) => s.getItemTotal);
   const [editOpen, setEditOpen] = useState(false);
 
-  const itemTotal = item.unitPrice * item.quantity;
+  const itemTotal = getItemTotal(item);
+  const unitTotal = itemTotal / item.quantity;
 
   return (
     <>
@@ -41,7 +43,7 @@ export default function CartItem({ item }: CartItemProps) {
             </p>
             {item.quantity > 1 && (
               <p className="text-xs text-gray-500">
-                ${item.unitPrice.toFixed(2)} each
+                ${unitTotal.toFixed(2)} each
               </p>
             )}
           </div>

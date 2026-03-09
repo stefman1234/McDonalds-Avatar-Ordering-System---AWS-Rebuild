@@ -322,7 +322,18 @@ export default function OrderPage() {
           const sizeImpliesMeal = !userSaidMeal && !!sizeFromTranscript && !!firstMainItem?.matchedMenuItemId &&
             isMealEligible({ name: firstMainItem.name, categoryName: firstMainItem.categoryName });
 
-          if ((userSaidMeal || sizeImpliesMeal) && firstMainItem?.matchedMenuItemId) {
+          // If user already specified both a side and a drink in this order, skip the meal flow —
+          // they've self-composed their meal and asking again causes frustration
+          const intentNames = intent.items.map((i) => i.name.toLowerCase());
+          const intentHasSide = intentNames.some((n) =>
+            /fries|corn|salad/.test(n)
+          );
+          const intentHasDrink = intentNames.some((n) =>
+            /coke|cola|sprite|fanta|milo|water|juice|latte|americano|cappuccino|ribena|tea|sirap|100/.test(n)
+          );
+          const userSelfComposedMeal = intentHasSide && intentHasDrink;
+
+          if ((userSaidMeal || sizeImpliesMeal) && firstMainItem?.matchedMenuItemId && !userSelfComposedMeal) {
             // User explicitly requested a meal — start flow immediately
             try {
               dlog("MEAL_CHECK", { menuItemId: firstMainItem.matchedMenuItemId, name: firstMainItem.name });
@@ -362,7 +373,7 @@ export default function OrderPage() {
             } catch (err) {
               dlog("MEAL_CHECK_ERROR", String(err));
             }
-          } else if (nlpMentionedMeal) {
+          } else if (nlpMentionedMeal && !userSelfComposedMeal) {
             // NLP offered a meal — find which item it's referring to
             // The NLP response may reference a cart item (e.g., "make your Double Cheeseburger a meal")
             // not necessarily the item just added (e.g., BBQ Sauce)
