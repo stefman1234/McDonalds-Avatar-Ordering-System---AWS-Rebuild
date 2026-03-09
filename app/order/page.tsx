@@ -194,14 +194,14 @@ export default function OrderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Idle timeout — 120s redirects to idle, warning at 30s before
+  // Idle timeout — 30s redirects to idle, warning at 10s before
   const { showWarning: idleWarning, secondsLeft: idleSecondsLeft } = useIdleTimeout(() => {
     clearCart();
     clearMessages();
     resetConversation();
     destroyAvatar();
     router.push("/");
-  }, 120000, 30000);
+  }, 30000, 10000);
 
   // Silently check meal conversion — stores data for meal_response handler
   // No modal or speech — Casey handles meal offers conversationally via NLP prompt rule 22
