@@ -1346,7 +1346,7 @@ export default function OrderPage() {
             customizations: ["Meal Deal"],
             imageUrl: null,
           });
-          speak(`Switched to ${mealDealSuggestion.combo.name}. You saved $${mealDealSuggestion.savings.toFixed(2)}!`);
+          speak(`Switched to ${mealDealSuggestion.combo.name}. You saved RM ${mealDealSuggestion.savings.toFixed(2)}!`);
           setMealDealSuggestion(null);
         }}
         onKeepSeparate={() => setMealDealSuggestion(null)}

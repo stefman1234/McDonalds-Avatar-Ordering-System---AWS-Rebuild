@@ -217,7 +217,7 @@ export default function CustomizationModal({
                 >
                   <span className="text-4xl block mb-2">{"\u{1F354}\u{1F35F}\u{1F964}"}</span>
                   <span className="font-bold text-gray-900 block">Make it a Meal</span>
-                  <span className="text-sm text-gray-500 block mt-1">+$2.50</span>
+                  <span className="text-sm text-gray-500 block mt-1">+RM 2.50</span>
                   <span className="text-xs text-gray-400 block mt-0.5">
                     Includes side & drink
                   </span>
@@ -270,7 +270,7 @@ export default function CustomizationModal({
                 >
                   <span className="text-3xl block mb-2">{"\u{1F35F}"}</span>
                   <span className="font-bold text-gray-900 block">Large</span>
-                  <span className="text-sm text-green-600 block mt-1">+$1.00</span>
+                  <span className="text-sm text-green-600 block mt-1">+RM 1.00</span>
                 </button>
               </div>
             </div>
@@ -295,7 +295,7 @@ export default function CustomizationModal({
                   >
                     <span className="font-semibold text-gray-900 block text-sm">{side.name}</span>
                     <span className="text-xs text-gray-500 block mt-1">
-                      {side.priceModifier > 0 ? `+$${side.priceModifier.toFixed(2)}` : "Included"}
+                      {side.priceModifier > 0 ? `+RM ${side.priceModifier.toFixed(2)}` : "Included"}
                     </span>
                   </button>
                 ))}
@@ -322,7 +322,7 @@ export default function CustomizationModal({
                   >
                     <span className="font-semibold text-gray-900 block text-sm">{drink.name}</span>
                     <span className="text-xs text-gray-500 block mt-1">
-                      {drink.priceModifier > 0 ? `+$${drink.priceModifier.toFixed(2)}` : "Included"}
+                      {drink.priceModifier > 0 ? `+RM ${drink.priceModifier.toFixed(2)}` : "Included"}
                     </span>
                   </button>
                 ))}
@@ -392,7 +392,7 @@ export default function CustomizationModal({
                         <span className="text-gray-900 text-sm font-medium">{c.name}</span>
                       </div>
                       <span className="text-gray-500 text-sm">
-                        {c.priceExtra > 0 ? `+$${c.priceExtra.toFixed(2)}` : "Free"}
+                        {c.priceExtra > 0 ? `+RM ${c.priceExtra.toFixed(2)}` : "Free"}
                       </span>
                     </button>
                   ))}
@@ -461,7 +461,7 @@ export default function CustomizationModal({
           <div className="text-right">
             <p className="text-xs text-gray-400">Total</p>
             <span className="text-xl font-bold text-mcdonalds-red">
-              ${calcTotal().toFixed(2)}
+              RM {calcTotal().toFixed(2)}
             </span>
           </div>
 

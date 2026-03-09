@@ -134,7 +134,7 @@ export default function DebugPanel() {
           <StatusBadge label="SDK Listen" value={isListeningNow()} />
           <StatusBadge label="Processing" value={isProcessing} />
           <span className="text-gray-400 ml-auto">
-            Cart: {items.length} items | ${total().toFixed(2)}
+            Cart: {items.length} items | RM {total().toFixed(2)}
           </span>
         </div>
 

@@ -98,7 +98,7 @@ export default function MealCustomizationFlow({
             >
               <span className="font-medium text-gray-900">{option.name}</span>
               {option.price > 0 && (
-                <span className="text-sm text-gray-500">${option.price.toFixed(2)}</span>
+                <span className="text-sm text-gray-500">RM {option.price.toFixed(2)}</span>
               )}
             </button>
           ))}

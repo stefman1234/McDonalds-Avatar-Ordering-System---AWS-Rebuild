@@ -39,11 +39,11 @@ export default function CartItem({ item }: CartItemProps) {
           {/* Price */}
           <div className="flex items-center gap-3 mt-2">
             <p className="text-lg font-bold text-mcdonalds-red">
-              ${itemTotal.toFixed(2)}
+              RM {itemTotal.toFixed(2)}
             </p>
             {item.quantity > 1 && (
               <p className="text-xs text-gray-500">
-                ${unitTotal.toFixed(2)} each
+                RM {unitTotal.toFixed(2)} each
               </p>
             )}
           </div>

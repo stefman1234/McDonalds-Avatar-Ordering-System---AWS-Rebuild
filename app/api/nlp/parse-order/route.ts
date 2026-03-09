@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
           score: 1.0,
           categoryName: v.categoryName,
         }));
-        const variantList = allVariants.map((v) => `${v.name} ($${v.price.toFixed(2)})`).join(" or ");
+        const variantList = allVariants.map((v) => `${v.name} (RM ${v.price.toFixed(2)})`).join(" or ");
         intent.action = "unknown" as any;
         intent.items = [];
         intent.response = `We have ${variantList} — which would you like?`;

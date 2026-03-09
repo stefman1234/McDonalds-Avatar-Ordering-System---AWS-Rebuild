@@ -80,7 +80,7 @@ export default function CartItemEditModal({ item, open, onClose }: CartItemEditM
         <div className="p-5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <div>
             <h3 className="text-lg font-bold text-gray-900">Edit {item.name}</h3>
-            <p className="text-sm text-gray-500">${item.unitPrice.toFixed(2)} each</p>
+            <p className="text-sm text-gray-500">RM {item.unitPrice.toFixed(2)} each</p>
           </div>
           <button
             onClick={onClose}
@@ -141,7 +141,7 @@ export default function CartItemEditModal({ item, open, onClose }: CartItemEditM
                     >
                       {c.name}
                       {c.priceExtra > 0 && (
-                        <span className="ml-1 text-xs opacity-80">+${c.priceExtra.toFixed(2)}</span>
+                        <span className="ml-1 text-xs opacity-80">+RM {c.priceExtra.toFixed(2)}</span>
                       )}
                     </button>
                   );
@@ -171,7 +171,7 @@ export default function CartItemEditModal({ item, open, onClose }: CartItemEditM
         <div className="p-5 border-t border-gray-200 flex-shrink-0">
           {extraCost > 0 && (
             <p className="text-sm text-gray-600 mb-3">
-              Extra customizations: +${extraCost.toFixed(2)}
+              Extra customizations: +RM {extraCost.toFixed(2)}
             </p>
           )}
           <div className="flex gap-3">

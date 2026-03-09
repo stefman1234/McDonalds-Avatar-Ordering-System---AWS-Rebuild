@@ -42,7 +42,7 @@ export default function OrderItemsCarousel({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-base font-bold text-green-600">
-            ${subtotal().toFixed(2)}
+            RM {subtotal().toFixed(2)}
           </span>
           <button
             onClick={() => setCheckoutOpen(true)}

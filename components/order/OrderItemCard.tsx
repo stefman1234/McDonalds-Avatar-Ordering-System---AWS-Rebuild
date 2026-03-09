@@ -102,9 +102,9 @@ export default function OrderItemCard({ item, onRemove, onCustomize }: OrderItem
         {/* Price + Buttons pinned to bottom */}
         <div className="mt-2">
           <div>
-            <span className="text-base font-bold text-green-600">${total.toFixed(2)}</span>
+            <span className="text-base font-bold text-green-600">RM {total.toFixed(2)}</span>
             {item.quantity > 1 && (
-              <span className="text-[10px] text-gray-400 ml-1">(${perUnit.toFixed(2)} each)</span>
+              <span className="text-[10px] text-gray-400 ml-1">(RM {perUnit.toFixed(2)} each)</span>
             )}
           </div>
 

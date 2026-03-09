@@ -35,7 +35,7 @@ export default function MealConversionModal({
         {savings > 0 && (
           <div className="bg-green-500 text-white rounded-2xl px-6 py-3 mb-4 mx-auto inline-block">
             <p className="text-xs font-semibold uppercase tracking-wide opacity-90">You save</p>
-            <p className="text-4xl font-black leading-none">${savings.toFixed(2)}</p>
+            <p className="text-4xl font-black leading-none">RM {savings.toFixed(2)}</p>
           </div>
         )}
 
@@ -47,17 +47,17 @@ export default function MealConversionModal({
 
         <p className="text-gray-500 text-sm mb-4">
           Add fries &amp; a drink to your {itemName}
-          {extraCost > 0 ? ` for just $${extraCost.toFixed(2)} more` : " at no extra charge"}
+          {extraCost > 0 ? ` for just RM ${extraCost.toFixed(2)} more` : " at no extra charge"}
         </p>
 
         <div className="bg-gray-50 rounded-xl p-3 mb-5 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-gray-500">Meal total</span>
-            <span className="font-bold text-gray-900">${comboPrice.toFixed(2)}</span>
+            <span className="font-bold text-gray-900">RM {comboPrice.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between mt-1">
             <span className="text-gray-500">Item only</span>
-            <span className="text-gray-400">${itemPrice.toFixed(2)}</span>
+            <span className="text-gray-400">RM {itemPrice.toFixed(2)}</span>
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export default function MealConversionModal({
             onClick={onAccept}
             className="w-full btn-primary py-4 text-base font-bold min-h-[56px]"
           >
-            Yes, make it a meal — ${comboPrice.toFixed(2)}
+            Yes, make it a meal — RM {comboPrice.toFixed(2)}
           </button>
           <button
             onClick={onDecline}

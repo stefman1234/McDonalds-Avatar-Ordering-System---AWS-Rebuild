@@ -34,7 +34,7 @@ export function buildOrderReadback(items: CartItem[]): string {
   const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
   const total = Math.round((subtotal + tax) * 100) / 100;
 
-  return `Alright, so you have ${itemList}. Your total comes to $${total.toFixed(2)}. Shall I place the order?`;
+  return `Alright, so you have ${itemList}. Your total comes to RM ${total.toFixed(2)}. Shall I place the order?`;
 }
 
 /**

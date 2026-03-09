@@ -81,7 +81,7 @@ export default function MenuCard({ item, onAdd, onCustomize }: MenuCardProps) {
         {/* Price */}
         <div className="flex items-baseline gap-1 mt-1 mb-3">
           <span className="text-lg font-bold text-mcdonalds-red">
-            ${item.price.toFixed(2)}
+            RM {item.price.toFixed(2)}
           </span>
         </div>
 

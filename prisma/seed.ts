@@ -240,6 +240,13 @@ async function main() {
       aliases: ["gcb", "grilled chicken burger", "grilled chicken"],
       customizations: chickenBurgerCustomizations,
     },
+    {
+      name: "Quarter Pounder with Cheese",
+      description: "Two beef patties with two slices of cheese, pickles, onions, ketchup and mustard on a sesame bun",
+      price: 13.90,
+      aliases: ["quarter pounder", "qpc", "quarter pounder with cheese", "quarter pounder cheese", "quarter lb burger", "1/4 pounder"],
+      customizations: burgerCustomizations,
+    },
   ]);
 
   // ══════════════════════════════════════════════════════════
@@ -732,6 +739,7 @@ async function main() {
     { name: "Samurai Chicken Meal", mainName: "Samurai Chicken Burger", basePrice: 20.00, discount: 1.50, popular: false, aliases: ["samurai chicken meal", "samurai meal", "teriyaki chicken meal"] },
     { name: "Samurai Beef Meal", mainName: "Samurai Beef Burger", basePrice: 20.00, discount: 1.50, popular: false, aliases: ["samurai beef meal", "teriyaki beef meal"] },
     { name: "GCB Meal", mainName: "GCB (Grilled Chicken Burger)", basePrice: 18.00, discount: 1.50, popular: false, aliases: ["gcb meal", "grilled chicken burger meal", "grilled chicken meal"] },
+    { name: "Quarter Pounder with Cheese Meal", mainName: "Quarter Pounder with Cheese", basePrice: 19.50, discount: 1.50, popular: true, aliases: ["quarter pounder meal", "qpc meal", "quarter pounder with cheese meal", "quarter pounder combo"] },
     // Ayam Goreng combos
     { name: "Ayam Goreng McD 1pc Meal", mainName: "Ayam Goreng McD 1pc", basePrice: 13.90, discount: 1.00, popular: false, aliases: ["ayam goreng 1pc meal", "1pc ayam goreng meal", "fried chicken 1pc meal"] },
     { name: "Ayam Goreng McD 2pc Meal", mainName: "Ayam Goreng McD 2pc", basePrice: 20.00, discount: 1.50, popular: true, aliases: ["ayam goreng 2pc meal", "2pc ayam goreng meal", "fried chicken meal", "ayam goreng meal"] },

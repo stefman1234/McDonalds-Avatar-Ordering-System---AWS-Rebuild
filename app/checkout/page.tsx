@@ -230,7 +230,7 @@ export default function CheckoutPage() {
                   )}
                 </div>
                 <span className="text-gray-900 font-semibold text-sm ml-3 flex-shrink-0">
-                  ${(item.unitPrice * item.quantity).toFixed(2)}
+                  RM {(item.unitPrice * item.quantity).toFixed(2)}
                 </span>
               </div>
             ))}
@@ -242,15 +242,15 @@ export default function CheckoutPage() {
       <div className="bg-white border-t border-gray-200 px-6 pb-8 pt-4 flex-shrink-0">
         <div className="flex justify-between text-sm text-gray-500 mb-1">
           <span>Subtotal</span>
-          <span>${subtotal().toFixed(2)}</span>
+          <span>RM {subtotal().toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm text-gray-500 mb-3">
           <span>Tax (8.25%)</span>
-          <span>${tax().toFixed(2)}</span>
+          <span>RM {tax().toFixed(2)}</span>
         </div>
         <div className="flex justify-between items-baseline mb-4 border-t border-gray-100 pt-3">
           <span className="text-xl font-bold text-gray-900">Total</span>
-          <span className="text-3xl font-black text-mcdonalds-red">${total().toFixed(2)}</span>
+          <span className="text-3xl font-black text-mcdonalds-red">RM {total().toFixed(2)}</span>
         </div>
 
         {error && (
@@ -267,10 +267,10 @@ export default function CheckoutPage() {
           {submitting
             ? "Processing..."
             : paymentMethod === "card"
-            ? `Tap to Pay  $${total().toFixed(2)}`
+            ? `Tap to Pay  RM ${total().toFixed(2)}`
             : paymentMethod === "mobile_pay"
-            ? `Pay with Mobile  $${total().toFixed(2)}`
-            : `Pay at Counter  $${total().toFixed(2)}`}
+            ? `Pay with Mobile  RM ${total().toFixed(2)}`
+            : `Pay at Counter  RM ${total().toFixed(2)}`}
         </button>
       </div>
     </div>

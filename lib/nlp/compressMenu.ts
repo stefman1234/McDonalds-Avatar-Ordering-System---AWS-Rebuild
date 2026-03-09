@@ -23,7 +23,7 @@ function abbreviate(name: string): string {
  * ~60% reduction vs listing every item with full details.
  *
  * Output format:
- * Burgers[Big Mac $5.99,QP $6.49], Chicken[McNuggets(6/10/20),Strips $4.99]
+ * Burgers[Big Mac RM5.99,QP RM6.49], Chicken[McNuggets(6/10/20),Strips RM4.99]
  */
 export function compressMenuForPrompt(categories: CategoryDTO[]): string {
   return categories
@@ -31,7 +31,7 @@ export function compressMenuForPrompt(categories: CategoryDTO[]): string {
       const items = cat.items
         .map((item) => {
           const name = abbreviate(item.name);
-          return `${name} $${item.price}`;
+          return `${name} RM${item.price}`;
         })
         .join(",");
       return `${cat.name}[${items}]`;
