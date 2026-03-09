@@ -117,6 +117,7 @@ export default function OrderPage() {
   // NLP menu filtering
   const [filteredItemIds, setFilteredItemIds] = useState<number[] | null>(null);
   const [filterQuery, setFilterQuery] = useState("");
+  const [tabOverride, setTabOverride] = useState<"your_order" | "menu" | null>(null);
 
   // Text input mode
   const [textInputMode, setTextInputMode] = useState(false);
@@ -310,6 +311,7 @@ export default function OrderPage() {
               lastAddedItemRef.current = { name: item.name, menuItemId: item.matchedMenuItemId };
             }
           }
+          setTabOverride("your_order");
 
           // Check if user explicitly asked for a meal vs NLP just mentioning meal
           const userSaidMeal = /\bmeal\b/i.test(transcript ?? "");
@@ -398,6 +400,7 @@ export default function OrderPage() {
           if (matchedIds.length > 0) {
             setFilteredItemIds(matchedIds);
             setFilterQuery(intent.items.map((i) => i.name).join(", "));
+            setTabOverride("menu");
           }
           break;
         }
@@ -828,6 +831,7 @@ export default function OrderPage() {
                 if (catItems.length > 0) {
                   setFilteredItemIds(catItems.map((m) => m.id));
                   setFilterQuery(catName);
+                  setTabOverride("menu");
                 }
                 break;
               }
@@ -1305,6 +1309,8 @@ export default function OrderPage() {
             setFilteredItemIds(null);
             setFilterQuery("");
           }}
+          tabOverride={tabOverride}
+          onTabOverrideConsumed={() => setTabOverride(null)}
         />
       </ErrorBoundary>
 

@@ -15,6 +15,8 @@ interface MenuSectionProps {
   filteredItemIds?: number[] | null;
   filterQuery?: string;
   onClearFilter?: () => void;
+  tabOverride?: "your_order" | "menu" | null;
+  onTabOverrideConsumed?: () => void;
 }
 
 function ScrollArrows({
@@ -78,6 +80,8 @@ export default function MenuSection({
   filteredItemIds,
   filterQuery,
   onClearFilter,
+  tabOverride,
+  onTabOverrideConsumed,
 }: MenuSectionProps) {
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
@@ -122,6 +126,16 @@ export default function MenuSection({
   useEffect(() => {
     fetchMenu();
   }, [fetchMenu]);
+
+  useEffect(() => {
+    if (tabOverride === "your_order") {
+      setActiveTab("your_order");
+      onTabOverrideConsumed?.();
+    } else if (tabOverride === "menu" && categories.length > 0) {
+      setActiveTab(categories[0].id);
+      onTabOverrideConsumed?.();
+    }
+  }, [tabOverride, categories, onTabOverrideConsumed]);
 
   function handleAdd(item: MenuItemDTO) {
     addItem({
