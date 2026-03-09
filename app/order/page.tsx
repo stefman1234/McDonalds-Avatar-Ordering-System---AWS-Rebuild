@@ -845,7 +845,7 @@ export default function OrderPage() {
           } else if (consecutiveUnknownsRef.current >= 2 && !intent.fuzzyCandidates?.length) {
             intent.response = "Sorry, I'm having a bit of trouble. Could you say that one more time, or try typing it below?";
           }
-          const candidates = intent.fuzzyCandidates;
+          const candidates = intent.fuzzyCandidates?.filter((c) => (c.score ?? 0) >= 0.35);
           if (candidates && candidates.length > 0) {
             const candidateDTOs = candidates.map((c) => ({
               id: c.id,
@@ -861,11 +861,16 @@ export default function OrderPage() {
             }));
             activateClarification("ambiguous", intent.clarificationNeeded ?? "", candidateDTOs);
             // Avatar speaks the numbered options for voice selection
-            const optionList = candidateDTOs
-              .slice(0, 3)
-              .map((c, i) => `${i + 1}, ${c.name}`)
-              .join(", or ");
-            const clarifyPrompt = `Did you mean ${optionList}?`;
+            const top = candidateDTOs.slice(0, 3);
+            const nameList = top.map((c, i) => `${i + 1} for ${c.name}`).join(", or ");
+            const openers = [
+              "Sorry, I didn't quite catch that!",
+              "Hmm, I didn't quite get that!",
+              "Oops, I missed that one!",
+              "Sorry about that, I didn't catch it!",
+            ];
+            const opener = openers[Math.floor(Math.random() * openers.length)];
+            const clarifyPrompt = `${opener} Did you mean — say ${nameList}?`;
             speak(clarifyPrompt);
             addChatMessage({ role: "assistant", text: clarifyPrompt });
             return; // Skip the default response since we spoke our own
