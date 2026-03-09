@@ -18,6 +18,8 @@ export function useIdleTimeout(
   const [showWarning, setShowWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onIdleRef = useRef(onIdle);
+  useEffect(() => { onIdleRef.current = onIdle; });
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -29,7 +31,7 @@ export function useIdleTimeout(
   const reset = useCallback(() => {
     clearTimers();
     // Set main idle timer
-    timerRef.current = setTimeout(onIdle, timeout);
+    timerRef.current = setTimeout(() => onIdleRef.current(), timeout);
     // Set warning timer
     if (warningBefore > 0 && warningBefore < timeout) {
       warningTimerRef.current = setTimeout(() => {
@@ -47,7 +49,7 @@ export function useIdleTimeout(
         }, 1000);
       }, timeout - warningBefore);
     }
-  }, [onIdle, timeout, warningBefore, clearTimers]);
+  }, [timeout, warningBefore, clearTimers]);
 
   useEffect(() => {
     const events = ["mousedown", "touchstart", "keydown", "scroll"];
