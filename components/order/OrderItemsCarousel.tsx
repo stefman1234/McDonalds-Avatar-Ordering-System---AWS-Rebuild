@@ -20,7 +20,7 @@ export default function OrderItemsCarousel({
   const removeItem = useCartStore((s) => s.removeItem);
   const subtotal = useCartStore((s) => s.subtotal);
   const itemCount = useCartStore((s) => s.itemCount);
-  const setCheckoutOpen = useUIStore((s) => s.setCheckoutOpen);
+  const openCheckoutGate = useUIStore((s) => s.openCheckoutGate);
 
   const { containerRef, isDragging, hasMoved, handlers } = useDragScroll({
     momentumMultiplier: 16,
@@ -45,7 +45,7 @@ export default function OrderItemsCarousel({
             RM {subtotal().toFixed(2)}
           </span>
           <button
-            onClick={() => setCheckoutOpen(true)}
+            onClick={() => openCheckoutGate("touch")}
             className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors"
           >
             Checkout

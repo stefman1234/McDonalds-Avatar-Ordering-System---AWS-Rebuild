@@ -8,7 +8,7 @@ import { useCartStore } from "@/stores/cartStore";
 export default function CartDrawer() {
   const cartOpen = useUIStore((s) => s.cartOpen);
   const setCartOpen = useUIStore((s) => s.setCartOpen);
-  const setCheckoutOpen = useUIStore((s) => s.setCheckoutOpen);
+  const openCheckoutGate = useUIStore((s) => s.openCheckoutGate);
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
   const tax = useCartStore((s) => s.tax);
@@ -29,7 +29,7 @@ export default function CartDrawer() {
   }, [cartOpen]);
 
   function handleCheckout() {
-    setCheckoutOpen(true);
+    openCheckoutGate("touch");
   }
 
   function handleClearCart() {

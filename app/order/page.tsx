@@ -81,6 +81,11 @@ export default function OrderPage() {
   const isProcessing = useUIStore((s) => s.isProcessing);
   const chatMessages = useUIStore((s) => s.chatMessages);
   const clearMessages = useUIStore((s) => s.clearMessages);
+  const setCheckoutOpen = useUIStore((s) => s.setCheckoutOpen);
+  const checkoutGateOpen = useUIStore((s) => s.checkoutGateOpen);
+  const checkoutGateTrigger = useUIStore((s) => s.checkoutGateTrigger);
+  const openCheckoutGate = useUIStore((s) => s.openCheckoutGate);
+  const setCheckoutGateOpen = useUIStore((s) => s.setCheckoutGateOpen);
 
   // Cart store
   const addItem = useCartStore((s) => s.addItem);
@@ -144,9 +149,8 @@ export default function OrderPage() {
     detectedSize?: "medium" | "large";
   } | null>(null);
 
-  // Meal deal suggestion
+  // Meal deal suggestion (shown at checkout gate)
   const [mealDealSuggestion, setMealDealSuggestion] = useState<MealDealSuggestion | null>(null);
-  const suggestedDeals = useRef(new Set<number>());
 
   // Voice checkout flow
   const [voiceCheckoutStep, setVoiceCheckoutStep] = useState<VoiceCheckoutStep>("idle");
@@ -176,23 +180,44 @@ export default function OrderPage() {
       .catch(() => {});
   }, []);
 
-  // Detect meal deals when cart changes
-  useEffect(() => {
-    if (items.length < 2 || combos.length === 0) return;
-    const deals = detectMealDeals(items, combos);
-    const newDeal = deals.find((d) => !suggestedDeals.current.has(d.combo.id));
-    if (newDeal) {
-      suggestedDeals.current.add(newDeal.combo.id);
-      setMealDealSuggestion(newDeal);
-    }
-  }, [items, combos]);
-
   // Clear chat bubbles and cart on mount (e.g. returning from idle screen)
   useEffect(() => {
     clearMessages();
     clearCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Checkout gate — runs deal check then opens the right checkout flow
+  // Always-fresh ref so the useEffect doesn't need items/trigger in its deps
+  const openCheckoutByTriggerRef = useRef<() => void>(() => {});
+  openCheckoutByTriggerRef.current = function openCheckoutByTrigger() {
+    const readback = buildOrderReadback(items);
+    speak(readback);
+    addChatMessage({ role: "assistant", text: readback });
+    setCheckoutGateOpen(false);
+    if (checkoutGateTrigger === "voice") {
+      setVoiceCheckoutStep("readback");
+    } else {
+      setCheckoutOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!checkoutGateOpen) return;
+    if (items.length === 0) {
+      setCheckoutGateOpen(false);
+      return;
+    }
+    if (combos.length > 0) {
+      const deals = detectMealDeals(items, combos);
+      if (deals.length > 0) {
+        setMealDealSuggestion(deals[0]);
+        return; // Wait for user to tap yes/no in the modal
+      }
+    }
+    openCheckoutByTriggerRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutGateOpen]);
 
   // Idle timeout — 30s redirects to idle, warning at 10s before
   const { showWarning: idleWarning, secondsLeft: idleSecondsLeft } = useIdleTimeout(() => {
@@ -576,10 +601,7 @@ export default function OrderPage() {
             });
             break;
           }
-          const readback = buildOrderReadback(items);
-          speak(readback);
-          addChatMessage({ role: "assistant", text: readback });
-          setVoiceCheckoutStep("readback");
+          openCheckoutGate("voice");
           break;
         }
 
@@ -1330,11 +1352,15 @@ export default function OrderPage() {
 
       {/* Meal conversion is now handled conversationally by Casey — no modal needed */}
 
-      {/* Meal Deal Suggestion */}
+      {/* Meal Deal Suggestion — shown at checkout gate */}
       <MealSuggestionModal
         open={mealDealSuggestion !== null}
-        onClose={() => setMealDealSuggestion(null)}
+        onClose={() => {
+          setMealDealSuggestion(null);
+          openCheckoutByTriggerRef.current();
+        }}
         suggestion={mealDealSuggestion}
+        cartItems={items}
         onConvert={() => {
           if (!mealDealSuggestion) return;
           for (const id of mealDealSuggestion.matchedItemIds) removeItem(id);
@@ -1346,10 +1372,13 @@ export default function OrderPage() {
             customizations: ["Meal Deal"],
             imageUrl: null,
           });
-          speak(`Switched to ${mealDealSuggestion.combo.name}. You saved RM ${mealDealSuggestion.savings.toFixed(2)}!`);
           setMealDealSuggestion(null);
+          openCheckoutByTriggerRef.current();
         }}
-        onKeepSeparate={() => setMealDealSuggestion(null)}
+        onKeepSeparate={() => {
+          setMealDealSuggestion(null);
+          openCheckoutByTriggerRef.current();
+        }}
       />
 
       {/* C2: Fly-to-cart animation overlay */}

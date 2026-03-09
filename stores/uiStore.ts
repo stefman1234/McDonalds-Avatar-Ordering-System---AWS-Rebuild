@@ -5,6 +5,8 @@ interface UIState {
   menuOpen: boolean;
   cartOpen: boolean;
   checkoutOpen: boolean;
+  checkoutGateOpen: boolean;
+  checkoutGateTrigger: "touch" | "voice" | null;
   isListening: boolean;
   isProcessing: boolean;
   chatMessages: ChatMessage[];
@@ -13,6 +15,8 @@ interface UIState {
   setMenuOpen: (open: boolean) => void;
   setCartOpen: (open: boolean) => void;
   setCheckoutOpen: (open: boolean) => void;
+  openCheckoutGate: (trigger: "touch" | "voice") => void;
+  setCheckoutGateOpen: (open: boolean) => void;
   setListening: (listening: boolean) => void;
   setProcessing: (processing: boolean) => void;
   setAvatarReady: (ready: boolean) => void;
@@ -24,6 +28,8 @@ export const useUIStore = create<UIState>()((set) => ({
   menuOpen: false,
   cartOpen: false,
   checkoutOpen: false,
+  checkoutGateOpen: false,
+  checkoutGateTrigger: null,
   isListening: false,
   isProcessing: false,
   chatMessages: [],
@@ -32,6 +38,8 @@ export const useUIStore = create<UIState>()((set) => ({
   setMenuOpen: (open) => set({ menuOpen: open, cartOpen: false }),
   setCartOpen: (open) => set({ cartOpen: open, menuOpen: false }),
   setCheckoutOpen: (open) => set({ checkoutOpen: open, cartOpen: false }),
+  openCheckoutGate: (trigger) => set({ checkoutGateOpen: true, checkoutGateTrigger: trigger }),
+  setCheckoutGateOpen: (open) => set({ checkoutGateOpen: open, ...(open ? {} : { checkoutGateTrigger: null }) }),
   setListening: (listening) => set({ isListening: listening }),
   setProcessing: (processing) => set({ isProcessing: processing }),
   setAvatarReady: (ready) => set({ avatarReady: ready }),
