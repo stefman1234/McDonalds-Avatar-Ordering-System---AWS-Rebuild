@@ -2,6 +2,7 @@
 
 import { useDragScroll } from "@/hooks/useDragScroll";
 import { useCartStore } from "@/stores/cartStore";
+import { useUIStore } from "@/stores/uiStore";
 import OrderItemCard from "./OrderItemCard";
 import EmptyOrderState from "./EmptyOrderState";
 import type { CartItem } from "@/lib/types";
@@ -19,6 +20,7 @@ export default function OrderItemsCarousel({
   const removeItem = useCartStore((s) => s.removeItem);
   const subtotal = useCartStore((s) => s.subtotal);
   const itemCount = useCartStore((s) => s.itemCount);
+  const setCheckoutOpen = useUIStore((s) => s.setCheckoutOpen);
 
   const { containerRef, isDragging, hasMoved, handlers } = useDragScroll({
     momentumMultiplier: 16,
@@ -43,9 +45,7 @@ export default function OrderItemsCarousel({
             ${subtotal().toFixed(2)}
           </span>
           <button
-            onClick={() => {
-              /* checkout handled by voice */
-            }}
+            onClick={() => setCheckoutOpen(true)}
             className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors"
           >
             Checkout

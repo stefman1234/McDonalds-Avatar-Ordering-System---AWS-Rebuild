@@ -38,7 +38,7 @@ export const useCartStore = create<CartState>()(
       items: [],
 
       addItem: (item) => {
-        const id = `${item.menuItemId}-${item.customizations.sort().join(",")}`;
+        const id = `${item.menuItemId}-${item.isCombo ? "combo" : "solo"}-${item.customizations.sort().join(",")}`;
         set((state) => {
           const existing = state.items.find((i) => i.id === id);
           if (existing) {

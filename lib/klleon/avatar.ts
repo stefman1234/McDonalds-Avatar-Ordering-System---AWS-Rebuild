@@ -206,9 +206,11 @@ export function speak(text: string): void {
     log("warn", "speak() called but avatar not initialized — dropping");
     return;
   }
-  log("info", `echo(): "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" (videoReady=${videoReady})`);
+  log("info", `echo(): "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" (videoReady=${videoReady}, inLongWait=${inLongWait})`);
 
-  // Small delay to let Klleon finish any active STT/LLM cycle before we echo
+  // Capture long-wait state before waking — echo needs extra delay after wake
+  const wasInLongWait = inLongWait;
+
   const doEcho = () => {
     try {
       wakeIfNeeded();
@@ -226,8 +228,9 @@ export function speak(text: string): void {
     }
   };
 
-  // Delay echo slightly to avoid collision with active STT/LLM cycle
-  setTimeout(doEcho, 150);
+  // After waking from long-wait idle, give the avatar time to reinitialise
+  // before calling echo() — otherwise the SDK drops the speech
+  setTimeout(doEcho, wasInLongWait ? 900 : 150);
 }
 
 export function stopSpeech(): void {
@@ -256,7 +259,25 @@ export function startStt(): boolean {
     return false;
   }
   try {
+    const wasInLongWait = inLongWait;
     wakeIfNeeded();
+
+    if (wasInLongWait) {
+      // Give the avatar time to reinitialise after waking before starting STT
+      log("info", "startStt() — woke from long wait, delaying STT start by 900ms");
+      setTimeout(() => {
+        try {
+          window.KlleonChat.startStt();
+          currentlyListening = true;
+          log("info", "startStt() after wake — recording started");
+        } catch (err) {
+          log("error", "startStt() after wake failed:", err);
+          currentlyListening = false;
+        }
+      }, 900);
+      return true;
+    }
+
     window.KlleonChat.startStt();
     currentlyListening = true;
     log("info", "startStt() — recording started");

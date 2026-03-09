@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { MenuItemDTO } from "@/lib/types";
+import { triggerFlyAnimation } from "@/lib/cartAnimation";
 
 interface MenuCardProps {
   item: MenuItemDTO;
@@ -58,19 +59,9 @@ export default function MenuCard({ item, onAdd, onCustomize }: MenuCardProps) {
 
         {/* Badges */}
         <div className="absolute top-2 right-2 flex flex-col gap-1">
-          {(item as any).popular && (
-            <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+          {item.popular && (
+            <span className="bg-mcdonalds-red text-white text-[10px] font-bold px-2 py-1 rounded-full shadow">
               POPULAR
-            </span>
-          )}
-          {(item as any).vegetarian && (
-            <span className="bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              VEGETARIAN
-            </span>
-          )}
-          {(item as any).glutenFree && (
-            <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              GLUTEN-FREE
             </span>
           )}
         </div>
@@ -105,7 +96,11 @@ export default function MenuCard({ item, onAdd, onCustomize }: MenuCardProps) {
             </button>
           )}
           <button
-            onClick={() => onAdd(item)}
+            onClick={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              triggerFlyAnimation(rect, getItemIcon(item.name, item.categoryName));
+              onAdd(item);
+            }}
             className="w-full bg-mcdonalds-red text-white text-xs font-bold py-2 rounded-lg shadow-md hover:bg-[#C41E3A] active:scale-95 transition-all duration-200"
           >
             Add to Order

@@ -9,6 +9,7 @@ export interface MenuItemDTO {
   categoryName: string;
   aliases: string[];
   customizations: CustomizationDTO[];
+  popular?: boolean;
 }
 
 export interface CustomizationDTO {

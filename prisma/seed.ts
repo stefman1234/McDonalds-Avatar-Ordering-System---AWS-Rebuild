@@ -45,209 +45,148 @@ async function seedCategory(
   return category;
 }
 
-// Shared customization templates
+// ─── Customization templates ───────────────────────────────────────────────
+
 const burgerCustomizations = [
-  { name: "No Pickles", priceExtra: 0 },
-  { name: "No Onions", priceExtra: 0 },
   { name: "No Lettuce", priceExtra: 0 },
+  { name: "No Onions", priceExtra: 0 },
+  { name: "No Pickles", priceExtra: 0 },
   { name: "No Tomato", priceExtra: 0 },
-  { name: "No Ketchup", priceExtra: 0 },
-  { name: "No Mustard", priceExtra: 0 },
-  { name: "No Cheese", priceExtra: 0 },
-  { name: "Extra Pickles", priceExtra: 0 },
-  { name: "Extra Onions", priceExtra: 0 },
+  { name: "No Sauce", priceExtra: 0 },
   { name: "Extra Lettuce", priceExtra: 0 },
-  { name: "Extra Cheese", priceExtra: 0.5 },
-  { name: "Extra Sauce", priceExtra: 0.5 },
-  { name: "Add Bacon", priceExtra: 1.5 },
-  { name: "Add Tomato", priceExtra: 0.3 },
-  { name: "Add Mac Sauce", priceExtra: 0.3 },
+  { name: "Extra Onions", priceExtra: 0 },
+  { name: "Extra Sauce", priceExtra: 0 },
+  { name: "Extra Cheese", priceExtra: 1.0 },
+  { name: "Add Egg", priceExtra: 1.5 },
 ];
 
-const chickenCustomizations = [
+const chickenBurgerCustomizations = [
   { name: "No Lettuce", priceExtra: 0 },
   { name: "No Mayo", priceExtra: 0 },
   { name: "No Tomato", priceExtra: 0 },
+  { name: "No Chilli Sauce", priceExtra: 0 },
   { name: "Extra Lettuce", priceExtra: 0 },
   { name: "Extra Mayo", priceExtra: 0 },
-  { name: "Add Cheese", priceExtra: 0.5 },
-  { name: "Add Bacon", priceExtra: 1.5 },
-  { name: "Add Tomato", priceExtra: 0.3 },
+  { name: "Extra Chilli Sauce", priceExtra: 0 },
+  { name: "Add Cheese", priceExtra: 1.0 },
+  { name: "Add Egg", priceExtra: 1.5 },
 ];
 
-const nuggetCustomizations = [
+const nuggetDippingSauces = [
   { name: "BBQ Sauce", priceExtra: 0 },
   { name: "Sweet & Sour Sauce", priceExtra: 0 },
-  { name: "Hot Mustard", priceExtra: 0 },
+  { name: "Chilli Sauce", priceExtra: 0 },
+  { name: "Curry Sauce", priceExtra: 0 },
+  { name: "Garlic Chilli Sauce", priceExtra: 0 },
   { name: "Honey Mustard", priceExtra: 0 },
-  { name: "Ranch Sauce", priceExtra: 0 },
-  { name: "Buffalo Sauce", priceExtra: 0 },
-  { name: "Tangy BBQ Sauce", priceExtra: 0 },
-  { name: "Creamy Ranch", priceExtra: 0 },
+];
+
+const ayamGorengCustomizations = [
+  { name: "Spicy", priceExtra: 0 },
+  { name: "Regular (Non-Spicy)", priceExtra: 0 },
+  { name: "Extra Chilli Sauce", priceExtra: 0 },
+  { name: "BBQ Sauce", priceExtra: 0 },
 ];
 
 const drinkCustomizations = [
   { name: "No Ice", priceExtra: 0 },
-  { name: "Light Ice", priceExtra: 0 },
+  { name: "Less Ice", priceExtra: 0 },
   { name: "Extra Ice", priceExtra: 0 },
 ];
 
-const coffeeCustomizations = [
+const mccafeCustomizations = [
   { name: "No Sugar", priceExtra: 0 },
+  { name: "Less Sugar", priceExtra: 0 },
   { name: "Extra Sugar", priceExtra: 0 },
-  { name: "No Cream", priceExtra: 0 },
-  { name: "Extra Cream", priceExtra: 0 },
-  { name: "Add Caramel Syrup", priceExtra: 0.6 },
-  { name: "Add Vanilla Syrup", priceExtra: 0.6 },
-  { name: "Add Hazelnut Syrup", priceExtra: 0.6 },
-  { name: "Substitute Oat Milk", priceExtra: 0.7 },
+  { name: "No Ice", priceExtra: 0 },
+  { name: "Less Ice", priceExtra: 0 },
+  { name: "Add Caramel Syrup", priceExtra: 1.0 },
+  { name: "Add Vanilla Syrup", priceExtra: 1.0 },
+  { name: "Add Hazelnut Syrup", priceExtra: 1.0 },
+  { name: "Oat Milk", priceExtra: 1.5 },
 ];
 
 const mcflurryCustomizations = [
-  { name: "Extra Topping", priceExtra: 0.5 },
-  { name: "Add Caramel Drizzle", priceExtra: 0.3 },
-  { name: "Add Chocolate Drizzle", priceExtra: 0.3 },
+  { name: "Extra Topping", priceExtra: 1.0 },
+  { name: "Add Caramel Drizzle", priceExtra: 0.5 },
+  { name: "Add Chocolate Drizzle", priceExtra: 0.5 },
 ];
 
+const sundaeCustomizations = [
+  { name: "Strawberry Topping", priceExtra: 0 },
+  { name: "Chocolate Topping", priceExtra: 0 },
+  { name: "Extra Topping", priceExtra: 0.5 },
+];
+
+const friesCustomizations = [
+  { name: "No Salt", priceExtra: 0 },
+  { name: "Extra Salt", priceExtra: 0 },
+];
+
+// ─── Main seed ─────────────────────────────────────────────────────────────
+
 async function main() {
-  // Clear existing data in correct order
+  // Clear existing data
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.comboAlias.deleteMany();
+  await prisma.comboMeal.deleteMany();
   await prisma.customization.deleteMany();
   await prisma.menuItemAlias.deleteMany();
   await prisma.menuItem.deleteMany();
   await prisma.category.deleteMany();
 
-  // ═══════════════ BURGERS (10 items) ═══════════════
+  // ══════════════════════════════════════════════════════════
+  // 1. BURGERS
+  // ══════════════════════════════════════════════════════════
   await seedCategory("Burgers", 1, [
     {
       name: "Big Mac",
-      description: "Two 100% beef patties, special sauce, lettuce, cheese, pickles, onions on a sesame seed bun",
-      price: 8.99,
+      description: "Two beef patties with special Mac Sauce, lettuce, cheese, pickles and onions on a sesame seed bun",
+      price: 13.40,
       aliases: ["big mac", "bigmac", "the big mac"],
       customizations: burgerCustomizations,
     },
     {
-      name: "Quarter Pounder with Cheese",
-      description: "Quarter pound 100% fresh beef, two slices of cheese, onions, pickles, mustard and ketchup",
-      price: 9.49,
-      aliases: ["quarter pounder", "qpc", "quarter pounder with cheese", "1/4 pounder"],
+      name: "Mega Mac",
+      description: "Four beef patties with special Mac Sauce, lettuce, cheese, pickles and onions",
+      price: 15.50,
+      aliases: ["mega mac", "megamac", "4 patty big mac"],
       customizations: burgerCustomizations,
     },
     {
-      name: "Double Quarter Pounder with Cheese",
-      description: "Two quarter pound 100% fresh beef patties with cheese, onions, pickles",
-      price: 11.49,
-      aliases: ["double quarter pounder", "double qpc", "double quarter"],
-      customizations: burgerCustomizations,
+      name: "McChicken",
+      description: "Crispy chicken patty with lettuce and creamy mayo",
+      price: 9.43,
+      aliases: ["mcchicken", "mc chicken", "chicken burger", "ayam burger"],
+      customizations: chickenBurgerCustomizations,
+    },
+    {
+      name: "Double McChicken",
+      description: "Two crispy chicken patties with lettuce and creamy mayo",
+      price: 11.95,
+      aliases: ["double mcchicken", "double chicken burger", "double mc chicken"],
+      customizations: chickenBurgerCustomizations,
+    },
+    {
+      name: "Spicy Chicken McDeluxe",
+      description: "Juicy spicy chicken fillet with lettuce, tomato and spicy mayo on a premium bun",
+      price: 13.54,
+      aliases: ["spicy chicken mcdeluxe", "mcdeluxe", "spicy mcdeluxe", "spicy chicken deluxe", "chicken deluxe"],
+      customizations: chickenBurgerCustomizations,
     },
     {
       name: "Double Cheeseburger",
-      description: "Two 100% beef patties with two slices of cheese, pickles, onions, ketchup and mustard",
-      price: 5.49,
-      aliases: ["double cheeseburger", "double cheese"],
+      description: "Two beef patties with two slices of cheese, pickles, onions, ketchup and mustard",
+      price: 11.93,
+      aliases: ["double cheeseburger", "double cheese burger", "double cheese"],
       customizations: burgerCustomizations,
-    },
-    {
-      name: "McDouble",
-      description: "Two 100% beef patties, one slice of cheese, pickles, onions, ketchup and mustard",
-      price: 3.99,
-      aliases: ["mcdouble", "mc double"],
-      customizations: burgerCustomizations.slice(0, 10),
-    },
-    {
-      name: "Cheeseburger",
-      description: "100% beef patty with cheese, pickles, onions, ketchup and mustard",
-      price: 3.49,
-      aliases: ["cheeseburger", "cheese burger"],
-      customizations: burgerCustomizations.slice(0, 10),
-    },
-    {
-      name: "Hamburger",
-      description: "100% beef patty with pickles, onions, ketchup and mustard on a toasted bun",
-      price: 2.99,
-      aliases: ["hamburger", "plain burger", "burger"],
-      customizations: burgerCustomizations.slice(0, 8),
-    },
-    {
-      name: "Big N' Tasty",
-      description: "Quarter pound beef, lettuce, tomato, onion, pickle with mayo on a sesame bun",
-      price: 7.49,
-      aliases: ["big n tasty", "big and tasty", "bnt"],
-      customizations: burgerCustomizations,
-    },
-    {
-      name: "McChicken Deluxe Burger",
-      description: "Crispy chicken with lettuce, tomato, and mayo on a premium bun",
-      price: 8.49,
-      aliases: ["mcchicken deluxe", "deluxe chicken burger", "chicken deluxe"],
-      customizations: chickenCustomizations,
-    },
-    {
-      name: "Bacon Smokehouse Burger",
-      description: "Thick-cut applewood smoked bacon, beef, crispy onions, cheese, and smoky sauce",
-      price: 10.99,
-      aliases: ["bacon smokehouse", "smokehouse burger", "smokehouse"],
-      customizations: burgerCustomizations,
-    },
-  ]);
-
-  // ═══════════════ CHICKEN & FISH (8 items) ═══════════════
-  await seedCategory("Chicken & Fish", 2, [
-    {
-      name: "McChicken",
-      description: "Crispy chicken patty with lettuce and mayonnaise",
-      price: 4.49,
-      aliases: ["mcchicken", "mc chicken", "chicken burger", "chicken sandwich"],
-      customizations: chickenCustomizations,
-    },
-    {
-      name: "Spicy McChicken",
-      description: "Spicy crispy chicken patty with lettuce and mayonnaise",
-      price: 5.49,
-      aliases: ["spicy mcchicken", "spicy chicken", "spicy mc chicken"],
-      customizations: chickenCustomizations,
-    },
-    {
-      name: "Crispy Chicken Sandwich",
-      description: "Southern style crispy chicken breast with pickles on a potato roll",
-      price: 7.99,
-      aliases: ["crispy chicken sandwich", "crispy chicken", "chicken sandwich deluxe"],
-      customizations: chickenCustomizations,
-    },
-    {
-      name: "20pc Chicken McNuggets",
-      description: "20 pieces of tender chicken McNuggets",
-      price: 12.99,
-      aliases: ["20 piece nuggets", "20 nuggets", "20 mcnuggets", "twenty nuggets"],
-      customizations: nuggetCustomizations,
-    },
-    {
-      name: "10pc Chicken McNuggets",
-      description: "10 pieces of tender chicken McNuggets",
-      price: 7.99,
-      aliases: ["nuggets", "chicken nuggets", "mcnuggets", "10 piece nuggets", "10 nuggets"],
-      customizations: nuggetCustomizations,
-    },
-    {
-      name: "6pc Chicken McNuggets",
-      description: "6 pieces of tender chicken McNuggets",
-      price: 5.49,
-      aliases: ["6 piece nuggets", "6 nuggets", "small nuggets", "6 piece"],
-      customizations: nuggetCustomizations,
-    },
-    {
-      name: "4pc Chicken McNuggets",
-      description: "4 pieces of tender chicken McNuggets",
-      price: 3.99,
-      aliases: ["4 piece nuggets", "4 nuggets", "kids nuggets"],
-      customizations: nuggetCustomizations,
     },
     {
       name: "Filet-O-Fish",
-      description: "Wild-caught fish filet with tartar sauce and cheese on a steamed bun",
-      price: 6.99,
-      aliases: ["filet o fish", "fish burger", "fish sandwich", "fillet of fish", "fish filet"],
+      description: "Fish fillet with tartar sauce and cheese on a steamed bun",
+      price: 8.45,
+      aliases: ["filet o fish", "filet-o-fish", "fish burger", "fish sandwich", "fillet of fish"],
       customizations: [
         { name: "No Tartar Sauce", priceExtra: 0 },
         { name: "No Cheese", priceExtra: 0 },
@@ -255,415 +194,550 @@ async function main() {
         { name: "Add Lettuce", priceExtra: 0 },
       ],
     },
-  ]);
-
-  // ═══════════════ SIDES (8 items) ═══════════════
-  await seedCategory("Sides", 3, [
     {
-      name: "Large Fries",
-      description: "Golden, crispy World Famous Fries",
-      price: 4.99,
-      aliases: ["large fries", "big fries", "fries large"],
-      customizations: [{ name: "No Salt", priceExtra: 0 }, { name: "Extra Salt", priceExtra: 0 }],
-    },
-    {
-      name: "Medium Fries",
-      description: "Golden, crispy World Famous Fries",
-      price: 3.99,
-      aliases: ["medium fries", "fries", "regular fries"],
-      customizations: [{ name: "No Salt", priceExtra: 0 }, { name: "Extra Salt", priceExtra: 0 }],
-    },
-    {
-      name: "Small Fries",
-      description: "Golden, crispy World Famous Fries",
-      price: 2.99,
-      aliases: ["small fries", "fries small", "kid fries"],
-      customizations: [{ name: "No Salt", priceExtra: 0 }, { name: "Extra Salt", priceExtra: 0 }],
-    },
-    {
-      name: "Apple Slices",
-      description: "Fresh, crisp apple slices",
-      price: 1.99,
-      aliases: ["apple slices", "apples", "apple"],
-    },
-    {
-      name: "Side Salad",
-      description: "Fresh mixed greens with grape tomatoes",
-      price: 3.49,
-      aliases: ["side salad", "salad", "garden salad"],
+      name: "Double Filet-O-Fish",
+      description: "Two fish fillets with tartar sauce and cheese on a steamed bun",
+      price: 12.25,
+      aliases: ["double filet o fish", "double fish burger", "double filet"],
       customizations: [
-        { name: "Ranch Dressing", priceExtra: 0 },
-        { name: "Balsamic Vinaigrette", priceExtra: 0 },
-        { name: "Caesar Dressing", priceExtra: 0 },
-        { name: "No Dressing", priceExtra: 0 },
+        { name: "No Tartar Sauce", priceExtra: 0 },
+        { name: "No Cheese", priceExtra: 0 },
+        { name: "Extra Tartar Sauce", priceExtra: 0 },
       ],
     },
     {
-      name: "Mozzarella Sticks (3pc)",
-      description: "3 crispy golden mozzarella sticks with marinara sauce",
-      price: 3.99,
-      aliases: ["mozzarella sticks", "mozz sticks", "cheese sticks", "3 piece mozzarella"],
+      name: "Smoky Grilled Beef Burger",
+      description: "Grilled beef patty with smoky BBQ sauce, caramelised onions, lettuce and pickles",
+      price: 15.05,
+      aliases: ["smoky grilled beef", "smoky beef burger", "grilled beef burger", "smoky grilled"],
+      customizations: burgerCustomizations,
     },
     {
-      name: "Mozzarella Sticks (6pc)",
-      description: "6 crispy golden mozzarella sticks with marinara sauce",
-      price: 6.49,
-      aliases: ["6 piece mozzarella sticks", "6 mozz sticks", "large mozzarella sticks"],
+      name: "Samurai Chicken Burger",
+      description: "Crispy chicken fillet with teriyaki sauce, lettuce and mayo on a sesame bun",
+      price: 14.58,
+      aliases: ["samurai chicken", "samurai chicken burger", "teriyaki chicken burger"],
+      customizations: chickenBurgerCustomizations,
     },
     {
-      name: "Hash Brown",
-      description: "Crispy, golden hash brown",
-      price: 2.49,
-      aliases: ["hash brown", "hashbrown", "hash browns"],
+      name: "Samurai Beef Burger",
+      description: "Beef patty with teriyaki sauce, lettuce and mayo on a sesame bun",
+      price: 14.58,
+      aliases: ["samurai beef", "samurai beef burger", "teriyaki beef burger"],
+      customizations: burgerCustomizations,
+    },
+    {
+      name: "Double Samurai Chicken Burger",
+      description: "Two crispy chicken fillets with teriyaki sauce, lettuce and mayo",
+      price: 18.35,
+      aliases: ["double samurai chicken", "double samurai"],
+      customizations: chickenBurgerCustomizations,
+    },
+    {
+      name: "GCB (Grilled Chicken Burger)",
+      description: "Grilled chicken fillet with smoky sauce, lettuce and onions",
+      price: 12.50,
+      aliases: ["gcb", "grilled chicken burger", "grilled chicken"],
+      customizations: chickenBurgerCustomizations,
     },
   ]);
 
-  // ═══════════════ DRINKS (12 items) ═══════════════
-  await seedCategory("Drinks", 4, [
+  // ══════════════════════════════════════════════════════════
+  // 2. AYAM GORENG McD
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Ayam Goreng McD", 2, [
     {
-      name: "Large Coca-Cola",
-      description: "Ice-cold Coca-Cola",
-      price: 3.99,
-      aliases: ["large coke", "large coca cola", "big coke"],
+      name: "Ayam Goreng McD 1pc",
+      description: "McDonald's signature fried chicken — crispy on the outside, juicy on the inside. Available in Spicy or Regular.",
+      price: 8.40,
+      aliases: ["ayam goreng 1pc", "fried chicken 1 piece", "1 piece ayam goreng", "1pc ayam goreng", "one piece chicken", "1 piece fried chicken", "one piece ayam goreng", "1 pieces ayam goreng", "ayam goreng 1 piece", "ayam goreng one piece"],
+      customizations: ayamGorengCustomizations,
+    },
+    {
+      name: "Ayam Goreng McD 2pc",
+      description: "Two pieces of McDonald's signature fried chicken. Available in Spicy or Regular.",
+      price: 14.62,
+      aliases: ["ayam goreng 2pc", "fried chicken 2 piece", "2 piece ayam goreng", "2pc ayam goreng", "two piece chicken", "2 pieces ayam goreng", "two pieces ayam goreng", "2 pieces of ayam goreng", "ayam goreng 2 pieces", "ayam goreng two pieces", "2 piece fried chicken"],
+      customizations: ayamGorengCustomizations,
+    },
+    {
+      name: "Ayam Goreng McD 3pc",
+      description: "Three pieces of McDonald's signature fried chicken. Available in Spicy or Regular.",
+      price: 18.40,
+      aliases: ["ayam goreng 3pc", "fried chicken 3 piece", "3 piece ayam goreng", "3pc ayam goreng", "three piece chicken", "3 pieces ayam goreng", "three pieces ayam goreng", "3 pieces of ayam goreng", "three pieces of ayam goreng", "ayam goreng 3 pieces", "ayam goreng three pieces", "3 piece fried chicken", "three piece ayam goreng"],
+      customizations: ayamGorengCustomizations,
+    },
+    {
+      name: "Ayam Goreng McD 5pc",
+      description: "Five pieces of McDonald's signature fried chicken. Available in Spicy or Regular.",
+      price: 30.20,
+      aliases: ["ayam goreng 5pc", "fried chicken 5 piece", "5 piece ayam goreng", "5pc ayam goreng", "five piece chicken", "5 pieces ayam goreng", "five pieces ayam goreng", "5 pieces of ayam goreng", "ayam goreng 5 pieces", "ayam goreng five pieces", "5 piece fried chicken", "five piece ayam goreng"],
+      customizations: ayamGorengCustomizations,
+    },
+    {
+      name: "Ayam Goreng McD 9pc",
+      description: "Nine pieces of McDonald's signature fried chicken — great for sharing. Available in Spicy or Regular.",
+      price: 51.90,
+      aliases: ["ayam goreng 9pc", "fried chicken 9 piece", "9 piece ayam goreng", "9pc ayam goreng", "nine piece chicken", "family chicken", "9 pieces ayam goreng", "nine pieces ayam goreng", "9 pieces of ayam goreng", "nine pieces of ayam goreng", "ayam goreng 9 pieces", "ayam goreng nine pieces", "9 piece fried chicken", "nine piece ayam goreng", "9 pcs ayam goreng"],
+      customizations: ayamGorengCustomizations,
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 3. McNUGGETS
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("McNuggets", 3, [
+    {
+      name: "Chicken McNuggets 6pc",
+      description: "6 pieces of tender, golden chicken McNuggets made with 100% chicken breast meat",
+      price: 9.40,
+      aliases: ["6 nuggets", "6pc nuggets", "6 piece nuggets", "nuggets 6", "mcnuggets 6", "six nuggets", "small nuggets"],
+      customizations: nuggetDippingSauces,
+    },
+    {
+      name: "Chicken McNuggets 9pc",
+      description: "9 pieces of tender, golden chicken McNuggets made with 100% chicken breast meat",
+      price: 12.25,
+      aliases: ["9 nuggets", "9pc nuggets", "9 piece nuggets", "nuggets 9", "mcnuggets 9", "nine nuggets"],
+      customizations: nuggetDippingSauces,
+    },
+    {
+      name: "Chicken McNuggets 20pc",
+      description: "20 pieces of tender, golden chicken McNuggets — perfect for sharing",
+      price: 26.00,
+      aliases: ["20 nuggets", "20pc nuggets", "20 piece nuggets", "nuggets 20", "mcnuggets 20", "twenty nuggets", "sharing nuggets", "large nuggets"],
+      customizations: nuggetDippingSauces,
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 4. NASI & BUBUR (Malaysian Specialties)
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Nasi & Bubur", 4, [
+    {
+      name: "Nasi Lemak McD",
+      description: "Fragrant coconut rice served with crispy chicken, sambal, fried egg, cucumber and anchovies — a Malaysian classic",
+      price: 8.02,
+      aliases: ["nasi lemak", "nasi lemak mcd", "mcdonalds nasi lemak", "coconut rice"],
+      customizations: [
+        { name: "Extra Sambal", priceExtra: 0 },
+        { name: "No Anchovies", priceExtra: 0 },
+        { name: "No Egg", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Bubur Ayam McD",
+      description: "Warm, comforting chicken porridge topped with shredded chicken, spring onions, ginger strips and crispy shallots",
+      price: 7.26,
+      aliases: ["bubur ayam", "bubur", "chicken porridge", "congee", "bubur mcd"],
+      customizations: [
+        { name: "Extra Ginger", priceExtra: 0 },
+        { name: "Extra Shallots", priceExtra: 0 },
+        { name: "No Spring Onion", priceExtra: 0 },
+        { name: "Extra Chilli", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Nasi Mekdi Ayam Goreng",
+      description: "Steamed rice served with Ayam Goreng McD, salted egg and sambal",
+      price: 14.50,
+      aliases: ["nasi mekdi", "nasi mekdi ayam", "rice with fried chicken", "mcd rice set"],
+      customizations: [
+        { name: "Extra Sambal", priceExtra: 0 },
+        { name: "Spicy Chicken", priceExtra: 0 },
+        { name: "Regular Chicken", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Nasi Mekdi GCB",
+      description: "Steamed rice served with Grilled Chicken, salted egg and sambal",
+      price: 15.00,
+      aliases: ["nasi mekdi gcb", "nasi mekdi grilled chicken", "rice with grilled chicken"],
+      customizations: [
+        { name: "Extra Sambal", priceExtra: 0 },
+        { name: "No Salted Egg", priceExtra: 0 },
+      ],
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 5. SIDES
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Sides", 5, [
+    {
+      name: "French Fries Small",
+      description: "Golden, crispy World Famous Fries lightly salted",
+      price: 4.30,
+      aliases: ["small fries", "fries small", "kecil fries"],
+      customizations: friesCustomizations,
+    },
+    {
+      name: "French Fries Medium",
+      description: "Golden, crispy World Famous Fries lightly salted",
+      price: 4.80,
+      aliases: ["medium fries", "fries", "regular fries", "kentang goreng", "fries medium"],
+      customizations: friesCustomizations,
+    },
+    {
+      name: "French Fries Large",
+      description: "Golden, crispy World Famous Fries lightly salted",
+      price: 5.60,
+      aliases: ["large fries", "big fries", "fries large", "upsize fries"],
+      customizations: friesCustomizations,
+    },
+    {
+      name: "Corn Cup Medium",
+      description: "Sweet, buttery corn in a cup",
+      price: 4.25,
+      aliases: ["corn", "corn cup", "medium corn", "jagung"],
+      customizations: [
+        { name: "Extra Butter", priceExtra: 0 },
+        { name: "No Butter", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Corn Cup Large",
+      description: "Sweet, buttery corn in a large cup",
+      price: 5.20,
+      aliases: ["large corn", "corn cup large", "big corn"],
+      customizations: [
+        { name: "Extra Butter", priceExtra: 0 },
+        { name: "No Butter", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Salted Egg Yolk Loaded Fries",
+      description: "Crispy World Famous Fries loaded with a rich, savoury salted egg yolk sauce",
+      price: 6.70,
+      aliases: ["salted egg fries", "loaded fries", "salted egg loaded fries", "telur masin fries"],
+    },
+    {
+      name: "Apple Pie",
+      description: "Crispy, flaky pastry filled with warm cinnamon apple filling",
+      price: 4.95,
+      aliases: ["apple pie", "pie", "hot apple pie"],
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 6. DRINKS
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Drinks", 6, [
+    {
+      name: "Coca-Cola Small",
+      description: "Ice-cold classic Coca-Cola",
+      price: 4.00,
+      aliases: ["small coke", "small coca cola", "coke small"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Medium Coca-Cola",
-      description: "Ice-cold Coca-Cola",
-      price: 2.99,
-      aliases: ["coke", "coca cola", "medium coke"],
+      name: "Coca-Cola Medium",
+      description: "Ice-cold classic Coca-Cola",
+      price: 4.50,
+      aliases: ["coke", "coca cola", "medium coke", "coke medium"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Small Coca-Cola",
-      description: "Ice-cold Coca-Cola",
-      price: 1.99,
-      aliases: ["small coke", "small coca cola"],
+      name: "Coca-Cola Large",
+      description: "Ice-cold classic Coca-Cola",
+      price: 5.00,
+      aliases: ["large coke", "large coca cola", "coke large", "big coke"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Large Sprite",
-      description: "Refreshing Sprite",
-      price: 3.99,
-      aliases: ["large sprite", "big sprite"],
+      name: "Sprite Small",
+      description: "Refreshing lemon-lime Sprite",
+      price: 4.00,
+      aliases: ["small sprite", "sprite small"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Medium Sprite",
-      description: "Refreshing Sprite",
-      price: 2.99,
+      name: "Sprite Medium",
+      description: "Refreshing lemon-lime Sprite",
+      price: 4.50,
       aliases: ["sprite", "medium sprite"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Small Sprite",
-      description: "Refreshing Sprite",
-      price: 1.99,
-      aliases: ["small sprite"],
+      name: "Sprite Large",
+      description: "Refreshing lemon-lime Sprite",
+      price: 5.00,
+      aliases: ["large sprite", "sprite large", "big sprite"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Large Fanta Orange",
-      description: "Bold citrus Fanta Orange",
-      price: 3.99,
-      aliases: ["large fanta", "big fanta", "large orange fanta"],
+      name: "Fanta Orange Small",
+      description: "Bold, fruity Fanta Orange",
+      price: 4.00,
+      aliases: ["small fanta", "fanta small"],
       customizations: drinkCustomizations,
     },
     {
-      name: "Medium Fanta Orange",
-      description: "Bold citrus Fanta Orange",
-      price: 2.99,
-      aliases: ["fanta", "fanta orange", "medium fanta", "orange soda"],
+      name: "Fanta Orange Medium",
+      description: "Bold, fruity Fanta Orange",
+      price: 4.50,
+      aliases: ["fanta", "fanta orange", "medium fanta"],
+      customizations: drinkCustomizations,
+    },
+    {
+      name: "Fanta Orange Large",
+      description: "Bold, fruity Fanta Orange",
+      price: 5.00,
+      aliases: ["large fanta", "fanta large", "big fanta"],
+      customizations: drinkCustomizations,
+    },
+    {
+      name: "Milo Small",
+      description: "Cold, chocolatey Milo — Malaysia's favourite",
+      price: 4.50,
+      aliases: ["small milo", "milo small", "iced milo small"],
+      customizations: drinkCustomizations,
+    },
+    {
+      name: "Milo Medium",
+      description: "Cold, chocolatey Milo — Malaysia's favourite",
+      price: 5.00,
+      aliases: ["milo", "medium milo", "iced milo"],
+      customizations: drinkCustomizations,
+    },
+    {
+      name: "Milo Large",
+      description: "Cold, chocolatey Milo — Malaysia's favourite",
+      price: 5.50,
+      aliases: ["large milo", "milo large", "big milo"],
       customizations: drinkCustomizations,
     },
     {
       name: "Orange Juice",
-      description: "Minute Maid Orange Juice",
-      price: 3.49,
-      aliases: ["orange juice", "oj"],
+      description: "Fresh, chilled orange juice",
+      price: 5.50,
+      aliases: ["orange juice", "oj", "jus oren"],
     },
     {
-      name: "Milk",
-      description: "1% low-fat milk",
-      price: 2.49,
-      aliases: ["milk", "low fat milk"],
+      name: "Mineral Water",
+      description: "Still mineral water",
+      price: 3.00,
+      aliases: ["water", "mineral water", "air mineral", "plain water"],
     },
     {
-      name: "Hot Coffee",
-      description: "Premium roast coffee",
-      price: 2.49,
-      aliases: ["coffee", "hot coffee", "regular coffee", "black coffee"],
-      customizations: coffeeCustomizations,
+      name: "Chocolate Milkshake",
+      description: "Thick, creamy chocolate milkshake",
+      price: 9.00,
+      aliases: ["chocolate milkshake", "choc milkshake", "chocolate shake"],
     },
     {
-      name: "Iced Coffee",
-      description: "Premium roast iced coffee with cream",
-      price: 3.99,
-      aliases: ["iced coffee", "ice coffee", "cold coffee"],
-      customizations: coffeeCustomizations,
+      name: "Strawberry Milkshake",
+      description: "Thick, creamy strawberry milkshake",
+      price: 9.00,
+      aliases: ["strawberry milkshake", "strawberry shake"],
+    },
+    {
+      name: "Vanilla Milkshake",
+      description: "Thick, creamy vanilla milkshake",
+      price: 9.00,
+      aliases: ["vanilla milkshake", "vanilla shake", "milkshake"],
     },
   ]);
 
-  // ═══════════════ DESSERTS (8 items) ═══════════════
-  await seedCategory("Desserts", 5, [
+  // ══════════════════════════════════════════════════════════
+  // 7. McCAFÉ
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("McCafé", 7, [
     {
-      name: "McFlurry with OREO",
-      description: "Creamy vanilla soft serve with OREO cookie pieces",
-      price: 5.99,
-      aliases: ["mcflurry", "oreo mcflurry", "mc flurry", "mcflurry oreo"],
+      name: "Kopi Susu",
+      description: "Rich espresso with steamed condensed milk — a Malaysian coffee classic",
+      price: 7.45,
+      aliases: ["kopi susu", "kopi o", "white coffee", "mcd coffee"],
+      customizations: mccafeCustomizations,
+    },
+    {
+      name: "Americano",
+      description: "Bold, smooth espresso with hot water",
+      price: 7.00,
+      aliases: ["americano", "black coffee", "hot americano"],
+      customizations: mccafeCustomizations,
+    },
+    {
+      name: "Cappuccino",
+      description: "Espresso with steamed milk and a thick layer of frothy foam",
+      price: 8.00,
+      aliases: ["cappuccino", "cap", "hot cappuccino"],
+      customizations: mccafeCustomizations,
+    },
+    {
+      name: "Iced Latte",
+      description: "Espresso with chilled milk over ice",
+      price: 8.40,
+      aliases: ["iced latte", "ice latte", "cold latte", "latte"],
+      customizations: mccafeCustomizations,
+    },
+    {
+      name: "Iced Americano",
+      description: "Bold espresso with chilled water over ice",
+      price: 7.50,
+      aliases: ["iced americano", "ice americano", "cold americano", "cold black coffee"],
+      customizations: mccafeCustomizations,
+    },
+    {
+      name: "Milo Dinosaur",
+      description: "Iced Milo topped with an extra scoop of Milo powder",
+      price: 8.00,
+      aliases: ["milo dinosaur", "milo dino", "milo ais dino"],
+      customizations: [
+        { name: "Extra Milo Powder", priceExtra: 0.5 },
+        { name: "Less Ice", priceExtra: 0 },
+        { name: "No Ice", priceExtra: 0 },
+      ],
+    },
+    {
+      name: "Ice Blended Caramel",
+      description: "Blended ice drink with caramel and whipped cream",
+      price: 13.68,
+      aliases: ["ice blended caramel", "caramel frappe", "caramel ice blended"],
+    },
+    {
+      name: "Ice Blended Mocha",
+      description: "Blended ice drink with rich mocha and whipped cream",
+      price: 13.68,
+      aliases: ["ice blended mocha", "mocha frappe", "mocha ice blended"],
+    },
+    {
+      name: "Hot Chocolate",
+      description: "Rich, creamy hot chocolate",
+      price: 8.00,
+      aliases: ["hot chocolate", "hot choc", "milo panas"],
+      customizations: [
+        { name: "No Sugar", priceExtra: 0 },
+        { name: "Extra Sugar", priceExtra: 0 },
+        { name: "Oat Milk", priceExtra: 1.5 },
+      ],
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 8. DESSERTS
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Desserts", 8, [
+    {
+      name: "OREO McFlurry",
+      description: "Creamy vanilla soft serve swirled with OREO cookie crumbs",
+      price: 7.78,
+      aliases: ["mcflurry", "oreo mcflurry", "mc flurry", "mcflurry oreo", "ais krim mcflurry"],
       customizations: mcflurryCustomizations,
     },
     {
-      name: "McFlurry with M&M'S",
-      description: "Creamy vanilla soft serve with M&M'S chocolate candy pieces",
-      price: 5.99,
-      aliases: ["m&m mcflurry", "mnm mcflurry", "mcflurry m and m"],
+      name: "Chocolate McFlurry",
+      description: "Creamy vanilla soft serve swirled with chocolate topping",
+      price: 7.78,
+      aliases: ["chocolate mcflurry", "choc mcflurry"],
       customizations: mcflurryCustomizations,
     },
     {
-      name: "Vanilla Cone",
-      description: "Creamy vanilla soft serve in a cone",
-      price: 2.49,
-      aliases: ["vanilla cone", "ice cream cone", "cone", "soft serve"],
+      name: "Vanilla Soft Serve",
+      description: "Classic smooth and creamy vanilla soft serve ice cream",
+      price: 3.00,
+      aliases: ["soft serve", "vanilla soft serve", "ice cream", "ais krim", "cone", "vanilla cone"],
     },
     {
-      name: "Hot Fudge Sundae",
-      description: "Vanilla soft serve with hot fudge topping and peanuts",
-      price: 3.99,
-      aliases: ["sundae", "hot fudge sundae", "fudge sundae"],
+      name: "Strawberry Sundae",
+      description: "Creamy vanilla soft serve with sweet strawberry topping",
+      price: 3.50,
+      aliases: ["strawberry sundae", "strawberry ice cream", "sundae strawberry"],
+      customizations: sundaeCustomizations,
+    },
+    {
+      name: "Chocolate Sundae",
+      description: "Creamy vanilla soft serve with rich chocolate topping",
+      price: 3.50,
+      aliases: ["chocolate sundae", "choc sundae", "sundae chocolate"],
+      customizations: sundaeCustomizations,
+    },
+  ]);
+
+  // ══════════════════════════════════════════════════════════
+  // 9. HAPPY MEAL
+  // ══════════════════════════════════════════════════════════
+  await seedCategory("Happy Meal", 9, [
+    {
+      name: "Happy Meal McChicken",
+      description: "McChicken burger with small fries or corn, small drink and a toy",
+      price: 11.13,
+      aliases: ["happy meal chicken", "mcchicken happy meal", "kids meal chicken", "happy meal"],
       customizations: [
-        { name: "No Peanuts", priceExtra: 0 },
-        { name: "Extra Fudge", priceExtra: 0.3 },
-        { name: "Add Whipped Cream", priceExtra: 0 },
+        { name: "Small Fries", priceExtra: 0 },
+        { name: "Corn Cup", priceExtra: 0 },
+        { name: "Coca-Cola", priceExtra: 0 },
+        { name: "Milo", priceExtra: 0 },
+        { name: "Orange Juice", priceExtra: 0 },
+        { name: "Mineral Water", priceExtra: 0 },
       ],
     },
     {
-      name: "Hot Caramel Sundae",
-      description: "Vanilla soft serve with warm caramel topping",
-      price: 3.99,
-      aliases: ["caramel sundae", "hot caramel sundae"],
+      name: "Happy Meal McNuggets 4pc",
+      description: "4 Chicken McNuggets with small fries or corn, small drink and a toy",
+      price: 11.13,
+      aliases: ["nuggets happy meal", "4pc nuggets happy meal", "kids meal nuggets", "happy meal nuggets", "happy meal mcnuggets", "mcnuggets happy meal", "happy meal with nuggets", "4 nugget happy meal", "nugget kids meal"],
       customizations: [
-        { name: "No Peanuts", priceExtra: 0 },
-        { name: "Extra Caramel", priceExtra: 0.3 },
-        { name: "Add Whipped Cream", priceExtra: 0 },
+        ...nuggetDippingSauces,
+        { name: "Small Fries", priceExtra: 0 },
+        { name: "Corn Cup", priceExtra: 0 },
+        { name: "Coca-Cola", priceExtra: 0 },
+        { name: "Milo", priceExtra: 0 },
+        { name: "Orange Juice", priceExtra: 0 },
+        { name: "Mineral Water", priceExtra: 0 },
       ],
     },
     {
-      name: "Apple Pie",
-      description: "Crispy, flaky crust filled with hot apple filling",
-      price: 2.49,
-      aliases: ["apple pie", "pie", "hot apple pie"],
-    },
-    {
-      name: "Chocolate Chip Cookie",
-      description: "Warm, soft-baked chocolate chip cookie",
-      price: 1.99,
-      aliases: ["cookie", "chocolate chip cookie", "choc chip cookie"],
-    },
-    {
-      name: "Chocolate Shake",
-      description: "Creamy chocolate milkshake made with vanilla soft serve",
-      price: 4.99,
-      aliases: ["chocolate shake", "choc shake", "chocolate milkshake"],
+      name: "Happy Meal Ayam Goreng McD",
+      description: "1pc Ayam Goreng McD with small fries or corn, small drink and a toy",
+      price: 11.51,
+      aliases: ["ayam goreng happy meal", "fried chicken happy meal", "kids meal ayam goreng", "happy meal ayam goreng", "happy meal fried chicken", "ayam goreng kids meal"],
       customizations: [
-        { name: "Add Whipped Cream", priceExtra: 0 },
-        { name: "Add Cherry", priceExtra: 0 },
+        { name: "Spicy", priceExtra: 0 },
+        { name: "Regular (Non-Spicy)", priceExtra: 0 },
+        { name: "Small Fries", priceExtra: 0 },
+        { name: "Corn Cup", priceExtra: 0 },
+        { name: "Coca-Cola", priceExtra: 0 },
+        { name: "Milo", priceExtra: 0 },
+        { name: "Orange Juice", priceExtra: 0 },
+        { name: "Mineral Water", priceExtra: 0 },
       ],
     },
   ]);
 
-  // ═══════════════ BREAKFAST (10 items) ═══════════════
-  const breakfastCustomizations = [
-    { name: "No Cheese", priceExtra: 0 },
-    { name: "Extra Cheese", priceExtra: 0.5 },
-    { name: "Add Bacon", priceExtra: 1.5 },
-    { name: "Add Sausage", priceExtra: 1.5 },
-    { name: "Sub Egg Whites", priceExtra: 0 },
-  ];
+  // ══════════════════════════════════════════════════════════
+  // COMBO MEALS
+  // ══════════════════════════════════════════════════════════
 
-  await seedCategory("Breakfast", 6, [
-    {
-      name: "Egg McMuffin",
-      description: "Freshly cracked egg, Canadian bacon and cheese on a toasted English muffin",
-      price: 5.49,
-      aliases: ["egg mcmuffin", "egg muffin", "mcmuffin"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Sausage McMuffin",
-      description: "Hot, savory sausage on a toasted English muffin",
-      price: 3.99,
-      aliases: ["sausage mcmuffin", "sausage muffin"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Sausage McMuffin with Egg",
-      description: "Sausage, egg, and cheese on a toasted English muffin",
-      price: 5.99,
-      aliases: ["sausage egg mcmuffin", "sausage mcmuffin with egg", "sausage egg muffin"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Bacon, Egg & Cheese Biscuit",
-      description: "Thick-cut applewood smoked bacon, egg, and cheese on a warm biscuit",
-      price: 5.99,
-      aliases: ["bacon egg cheese biscuit", "bec biscuit", "bacon biscuit"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Sausage Burrito",
-      description: "Seasoned sausage, scrambled eggs, cheese, peppers in a flour tortilla",
-      price: 3.49,
-      aliases: ["sausage burrito", "breakfast burrito", "burrito"],
-      customizations: [
-        { name: "No Cheese", priceExtra: 0 },
-        { name: "No Peppers", priceExtra: 0 },
-        { name: "Add Salsa", priceExtra: 0 },
-      ],
-    },
-    {
-      name: "Hotcakes",
-      description: "Three fluffy hotcakes with butter and syrup",
-      price: 5.99,
-      aliases: ["hotcakes", "pancakes", "hot cakes"],
-      customizations: [
-        { name: "No Butter", priceExtra: 0 },
-        { name: "Extra Syrup", priceExtra: 0 },
-        { name: "Add Sausage", priceExtra: 1.5 },
-      ],
-    },
-    {
-      name: "Hotcakes & Sausage",
-      description: "Three fluffy hotcakes with butter, syrup, and sausage",
-      price: 7.49,
-      aliases: ["hotcakes and sausage", "pancakes and sausage", "big breakfast hotcakes"],
-    },
-    {
-      name: "Sausage McGriddles",
-      description: "Sausage between two griddle cakes with maple flavor",
-      price: 4.49,
-      aliases: ["sausage mcgriddles", "mcgriddle", "mcgriddles"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Sausage, Egg & Cheese McGriddles",
-      description: "Sausage, egg, and cheese between two maple-flavored griddle cakes",
-      price: 6.49,
-      aliases: ["sausage egg cheese mcgriddles", "egg mcgriddle", "sec mcgriddles"],
-      customizations: breakfastCustomizations,
-    },
-    {
-      name: "Fruit & Maple Oatmeal",
-      description: "Whole grain oats, diced apples, cranberry raisin blend with maple cream",
-      price: 3.99,
-      aliases: ["oatmeal", "fruit oatmeal", "maple oatmeal", "fruit and maple oatmeal"],
-      customizations: [
-        { name: "No Cream", priceExtra: 0 },
-        { name: "No Brown Sugar", priceExtra: 0 },
-        { name: "No Fruit", priceExtra: 0 },
-      ],
-    },
-  ]);
-
-  // ═══════════════ HAPPY MEAL (4 items) ═══════════════
-  await seedCategory("Happy Meal", 7, [
-    {
-      name: "Hamburger Happy Meal",
-      description: "Hamburger, small fries, apple slices, and a drink",
-      price: 5.99,
-      aliases: ["hamburger happy meal", "happy meal", "kids meal", "kid meal"],
-      customizations: [
-        { name: "Sub Cheeseburger", priceExtra: 0.5 },
-        { name: "Apple Juice Drink", priceExtra: 0 },
-        { name: "Milk", priceExtra: 0 },
-        { name: "Chocolate Milk", priceExtra: 0 },
-      ],
-    },
-    {
-      name: "4pc McNuggets Happy Meal",
-      description: "4 Chicken McNuggets, small fries, apple slices, and a drink",
-      price: 5.99,
-      aliases: ["nugget happy meal", "mcnugget happy meal", "4 piece happy meal"],
-      customizations: [
-        ...nuggetCustomizations.slice(0, 4),
-        { name: "Apple Juice Drink", priceExtra: 0 },
-        { name: "Milk", priceExtra: 0 },
-        { name: "Chocolate Milk", priceExtra: 0 },
-      ],
-    },
-    {
-      name: "6pc McNuggets Happy Meal",
-      description: "6 Chicken McNuggets, small fries, apple slices, and a drink",
-      price: 6.99,
-      aliases: ["6 piece nugget happy meal", "big happy meal", "6 piece happy meal"],
-      customizations: [
-        ...nuggetCustomizations.slice(0, 4),
-        { name: "Apple Juice Drink", priceExtra: 0 },
-        { name: "Milk", priceExtra: 0 },
-        { name: "Chocolate Milk", priceExtra: 0 },
-      ],
-    },
-    {
-      name: "Cheeseburger Happy Meal",
-      description: "Cheeseburger, small fries, apple slices, and a drink",
-      price: 6.49,
-      aliases: ["cheeseburger happy meal", "cheese happy meal"],
-      customizations: [
-        { name: "No Pickles", priceExtra: 0 },
-        { name: "No Onions", priceExtra: 0 },
-        { name: "Apple Juice Drink", priceExtra: 0 },
-        { name: "Milk", priceExtra: 0 },
-        { name: "Chocolate Milk", priceExtra: 0 },
-      ],
-    },
-  ]);
-
-  // ═══════════════ COMBO MEALS (21 combos) ═══════════════
-  await prisma.comboAlias.deleteMany();
-  await prisma.comboMeal.deleteMany();
-
-  // Look up main items for combos
-  const mainItems = await prisma.menuItem.findMany({
-    where: {
-      name: {
-        in: [
-          "Big Mac", "Quarter Pounder with Cheese", "Double Quarter Pounder with Cheese",
-          "McChicken", "Crispy Chicken Sandwich", "Spicy McChicken",
-          "10pc Chicken McNuggets", "20pc Chicken McNuggets", "6pc Chicken McNuggets",
-          "Filet-O-Fish", "Double Cheeseburger", "Cheeseburger",
-          "Bacon Smokehouse Burger", "Big N' Tasty",
-          "Egg McMuffin", "Sausage McMuffin with Egg", "Bacon, Egg & Cheese Biscuit",
-          "Sausage McGriddles", "Hotcakes & Sausage", "Sausage, Egg & Cheese McGriddles",
-          "McDouble",
-        ],
-      },
-    },
+  // Look up IDs for combo main items, default side, and default drink
+  const allItems = await prisma.menuItem.findMany({
+    select: { id: true, name: true },
   });
+  const itemMap = new Map(allItems.map((i) => [i.name, i.id]));
 
-  const itemMap = new Map(mainItems.map((i) => [i.name, i.id]));
+  const defaultSideId = itemMap.get("French Fries Medium") ?? null;
+  const defaultDrinkId = itemMap.get("Coca-Cola Medium") ?? null;
 
   const combos = [
-    { name: "Big Mac Meal", mainName: "Big Mac", basePrice: 12.99, discount: 1.5, aliases: ["big mac meal", "big mac combo"], popular: true },
-    { name: "Quarter Pounder Meal", mainName: "Quarter Pounder with Cheese", basePrice: 13.49, discount: 1.5, aliases: ["quarter pounder meal", "qpc meal", "quarter pounder combo"] },
-    { name: "Double QP Meal", mainName: "Double Quarter Pounder with Cheese", basePrice: 15.49, discount: 1.5, aliases: ["double quarter pounder meal", "double qp meal", "double qp combo"] },
-    { name: "McChicken Meal", mainName: "McChicken", basePrice: 8.99, discount: 1.0, aliases: ["mcchicken meal", "mcchicken combo", "chicken meal"] },
-    { name: "Crispy Chicken Meal", mainName: "Crispy Chicken Sandwich", basePrice: 11.99, discount: 1.5, aliases: ["crispy chicken meal", "crispy chicken combo"] },
-    { name: "Spicy McChicken Meal", mainName: "Spicy McChicken", basePrice: 9.99, discount: 1.0, aliases: ["spicy mcchicken meal", "spicy chicken meal", "spicy chicken combo"] },
-    { name: "10pc McNuggets Meal", mainName: "10pc Chicken McNuggets", basePrice: 11.99, discount: 1.5, aliases: ["nugget meal", "10 piece meal", "mcnugget meal", "nuggets meal"], popular: true },
-    { name: "20pc McNuggets Meal", mainName: "20pc Chicken McNuggets", basePrice: 16.99, discount: 1.5, aliases: ["20 piece meal", "large nugget meal", "20 nugget meal"] },
-    { name: "6pc McNuggets Meal", mainName: "6pc Chicken McNuggets", basePrice: 9.49, discount: 1.0, aliases: ["6 piece meal", "small nugget meal", "6 nugget meal"] },
-    { name: "Filet-O-Fish Meal", mainName: "Filet-O-Fish", basePrice: 10.99, discount: 1.0, aliases: ["filet o fish meal", "fish meal", "fish combo"] },
-    { name: "Double Cheeseburger Meal", mainName: "Double Cheeseburger", basePrice: 9.49, discount: 1.0, aliases: ["double cheeseburger meal", "double cheese meal"] },
-    { name: "Cheeseburger Meal", mainName: "Cheeseburger", basePrice: 7.49, discount: 1.0, aliases: ["cheeseburger meal", "cheese burger meal"] },
-    { name: "Bacon Smokehouse Meal", mainName: "Bacon Smokehouse Burger", basePrice: 14.99, discount: 1.5, aliases: ["smokehouse meal", "bacon smokehouse combo"] },
-    { name: "Big N' Tasty Meal", mainName: "Big N' Tasty", basePrice: 11.49, discount: 1.5, aliases: ["big n tasty meal", "bnt meal"] },
-    { name: "McDouble Meal", mainName: "McDouble", basePrice: 7.99, discount: 1.0, aliases: ["mcdouble meal", "mc double meal"] },
-    { name: "Egg McMuffin Meal", mainName: "Egg McMuffin", basePrice: 7.99, discount: 1.0, aliases: ["egg mcmuffin meal", "mcmuffin meal", "breakfast meal"] },
-    { name: "Sausage McMuffin w/ Egg Meal", mainName: "Sausage McMuffin with Egg", basePrice: 8.49, discount: 1.0, aliases: ["sausage egg mcmuffin meal", "sausage mcmuffin meal"] },
-    { name: "Bacon Egg Cheese Biscuit Meal", mainName: "Bacon, Egg & Cheese Biscuit", basePrice: 8.49, discount: 1.0, aliases: ["bec biscuit meal", "bacon biscuit meal"] },
-    { name: "Sausage McGriddles Meal", mainName: "Sausage McGriddles", basePrice: 7.49, discount: 1.0, aliases: ["mcgriddle meal", "sausage mcgriddle meal"] },
-    { name: "Hotcakes & Sausage Meal", mainName: "Hotcakes & Sausage", basePrice: 9.99, discount: 1.0, aliases: ["hotcakes meal", "pancake meal"] },
-    { name: "SEC McGriddles Meal", mainName: "Sausage, Egg & Cheese McGriddles", basePrice: 8.99, discount: 1.0, aliases: ["sec mcgriddle meal", "egg mcgriddle meal"] },
+    // Burger combos
+    { name: "Big Mac Meal", mainName: "Big Mac", basePrice: 18.90, discount: 1.50, popular: true, aliases: ["big mac meal", "big mac combo", "bigmac meal"] },
+    { name: "Mega Mac Meal", mainName: "Mega Mac", basePrice: 21.00, discount: 1.50, popular: false, aliases: ["mega mac meal", "mega mac combo"] },
+    { name: "McChicken Meal", mainName: "McChicken", basePrice: 14.90, discount: 1.00, popular: true, aliases: ["mcchicken meal", "chicken burger meal", "mc chicken meal"] },
+    { name: "Double McChicken Meal", mainName: "Double McChicken", basePrice: 17.50, discount: 1.00, popular: false, aliases: ["double mcchicken meal", "double chicken meal"] },
+    { name: "Spicy Chicken McDeluxe Meal", mainName: "Spicy Chicken McDeluxe", basePrice: 19.00, discount: 1.50, popular: true, aliases: ["mcdeluxe meal", "spicy mcdeluxe meal", "spicy chicken mcdeluxe meal", "chicken deluxe meal"] },
+    { name: "Filet-O-Fish Meal", mainName: "Filet-O-Fish", basePrice: 14.00, discount: 1.00, popular: false, aliases: ["filet o fish meal", "fish burger meal", "fish meal"] },
+    { name: "Double Filet-O-Fish Meal", mainName: "Double Filet-O-Fish", basePrice: 17.50, discount: 1.00, popular: false, aliases: ["double filet o fish meal", "double fish meal"] },
+    { name: "Double Cheeseburger Meal", mainName: "Double Cheeseburger", basePrice: 17.00, discount: 1.00, popular: false, aliases: ["double cheeseburger meal", "double cheese meal"] },
+    { name: "Smoky Grilled Beef Meal", mainName: "Smoky Grilled Beef Burger", basePrice: 20.50, discount: 1.50, popular: false, aliases: ["smoky grilled beef meal", "grilled beef meal", "smoky beef meal"] },
+    { name: "Samurai Chicken Meal", mainName: "Samurai Chicken Burger", basePrice: 20.00, discount: 1.50, popular: false, aliases: ["samurai chicken meal", "samurai meal", "teriyaki chicken meal"] },
+    { name: "Samurai Beef Meal", mainName: "Samurai Beef Burger", basePrice: 20.00, discount: 1.50, popular: false, aliases: ["samurai beef meal", "teriyaki beef meal"] },
+    { name: "GCB Meal", mainName: "GCB (Grilled Chicken Burger)", basePrice: 18.00, discount: 1.50, popular: false, aliases: ["gcb meal", "grilled chicken burger meal", "grilled chicken meal"] },
+    // Ayam Goreng combos
+    { name: "Ayam Goreng McD 1pc Meal", mainName: "Ayam Goreng McD 1pc", basePrice: 13.90, discount: 1.00, popular: false, aliases: ["ayam goreng 1pc meal", "1pc ayam goreng meal", "fried chicken 1pc meal"] },
+    { name: "Ayam Goreng McD 2pc Meal", mainName: "Ayam Goreng McD 2pc", basePrice: 20.00, discount: 1.50, popular: true, aliases: ["ayam goreng 2pc meal", "2pc ayam goreng meal", "fried chicken meal", "ayam goreng meal"] },
+    // McNuggets combos
+    { name: "McNuggets 6pc Meal", mainName: "Chicken McNuggets 6pc", basePrice: 15.00, discount: 1.00, popular: true, aliases: ["nuggets meal", "6pc nuggets meal", "6 piece nuggets meal", "mcnuggets meal"] },
+    { name: "McNuggets 9pc Meal", mainName: "Chicken McNuggets 9pc", basePrice: 18.00, discount: 1.50, popular: false, aliases: ["9pc nuggets meal", "9 piece nuggets meal"] },
   ];
 
   for (const combo of combos) {
@@ -675,10 +749,12 @@ async function main() {
     await prisma.comboMeal.create({
       data: {
         name: combo.name,
-        description: `${combo.mainName} with medium fries and medium drink`,
+        description: `${combo.mainName} with Medium Fries and a drink`,
         basePrice: combo.basePrice,
         discount: combo.discount,
         mainItemId: mainId,
+        defaultSideId,
+        defaultDrinkId,
         popular: combo.popular ?? false,
         aliases: {
           create: combo.aliases.map((alias) => ({ alias })),
@@ -687,7 +763,7 @@ async function main() {
     });
   }
 
-  // Count totals
+  // Summary
   const itemCount = await prisma.menuItem.count();
   const customizationCount = await prisma.customization.count();
   const aliasCount = await prisma.menuItemAlias.count();

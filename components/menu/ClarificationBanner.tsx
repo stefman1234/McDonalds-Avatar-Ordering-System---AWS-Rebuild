@@ -23,10 +23,10 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
 
           {type === "ambiguous" && (
             <>
-              <p className="text-sm text-gray-900 mb-2">
-                Did you mean one of these? Tap or say the number:
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                Which one did you mean?
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {candidates.map((item, index) => (
                   <button
                     key={item.id}
@@ -34,10 +34,13 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
                       onSelectItem(item.id);
                       dismiss();
                     }}
-                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:bg-mcdonalds-yellow/20 hover:border-mcdonalds-yellow transition-colors"
+                    className="flex flex-col items-start gap-0.5 bg-white border-2 border-gray-200 rounded-xl px-4 py-3 min-h-[64px] text-left hover:border-mcdonalds-yellow hover:bg-mcdonalds-yellow/10 active:scale-95 transition-all touch-manipulation"
                   >
-                    <span className="text-mcdonalds-red font-bold mr-1">{index + 1}.</span>
-                    {item.name} - ${item.price.toFixed(2)}
+                    <span className="text-xs text-mcdonalds-red font-bold uppercase tracking-wide">
+                      Option {index + 1}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900 leading-tight">{item.name}</span>
+                    <span className="text-sm font-semibold text-mcdonalds-red">${item.price.toFixed(2)}</span>
                   </button>
                 ))}
               </div>
@@ -46,24 +49,23 @@ export default function ClarificationBanner({ onSelectItem }: ClarificationBanne
 
           {type === "size_needed" && (
             <>
-              <p className="text-sm text-gray-900 mb-2">
-                What size would you like for your {originalQuery}? Tap or say the size:
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                What size for your {originalQuery}?
               </p>
               <div className="flex gap-2">
                 {["Small", "Medium", "Large"].map((size, index) => (
                   <button
                     key={size}
                     onClick={() => {
-                      // Select the first candidate with this size preference
                       if (candidates.length > 0) {
                         onSelectItem(candidates[0].id);
                       }
                       dismiss();
                     }}
-                    className="px-4 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:bg-mcdonalds-yellow/20 hover:border-mcdonalds-yellow transition-colors"
+                    className="flex-1 flex flex-col items-center gap-0.5 bg-white border-2 border-gray-200 rounded-xl py-3 min-h-[64px] hover:border-mcdonalds-yellow hover:bg-mcdonalds-yellow/10 active:scale-95 transition-all touch-manipulation"
                   >
-                    <span className="text-mcdonalds-red font-bold mr-1">{index + 1}.</span>
-                    {size}
+                    <span className="text-xs text-mcdonalds-red font-bold">{index + 1}</span>
+                    <span className="text-sm font-bold text-gray-900">{size}</span>
                   </button>
                 ))}
               </div>

@@ -52,8 +52,13 @@ function ConfirmationContent() {
 
       <p className="text-gray-500 text-lg mb-2">Your order number is</p>
 
-      <div className="bg-mcdonalds-yellow text-mcdonalds-dark text-4xl font-bold px-8 py-4 rounded-2xl mb-4 shadow-lg">
-        #{orderId ?? "---"}
+      <div className="bg-mcdonalds-yellow text-gray-900 rounded-3xl mb-4 shadow-xl px-10 py-6 flex flex-col items-center">
+        <span className="text-[5rem] font-black leading-none tracking-tight">
+          #{orderId ?? "---"}
+        </span>
+        <span className="text-sm font-semibold text-gray-700 mt-1 uppercase tracking-widest">
+          Order Number
+        </span>
       </div>
 
       {orderType && (

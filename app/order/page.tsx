@@ -11,6 +11,8 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import CartButton from "@/components/cart/CartButton";
 import DebugPanel from "@/components/debug/DebugPanel";
 import MealSuggestionModal from "@/components/menu/MealSuggestionModal";
+import CartFlyOverlay from "@/components/cart/CartFlyOverlay";
+import CheckoutModal from "@/components/cart/CheckoutModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useUIStore } from "@/stores/uiStore";
 import { useCartStore } from "@/stores/cartStore";
@@ -18,7 +20,7 @@ import { useClarificationStore } from "@/stores/clarificationStore";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useActionHistoryStore } from "@/stores/actionHistoryStore";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
-import { onSTT, speak, onVideoReady, endStt, destroyAvatar } from "@/lib/klleon/avatar";
+import { onSTT, speak, stopSpeech, onVideoReady, endStt, destroyAvatar } from "@/lib/klleon/avatar";
 import { buildOrderReadback } from "@/lib/orderReadback";
 import { detectMealDeals } from "@/lib/mealDealDetector";
 import { getSuggestions, buildSuggestionPrompt } from "@/lib/pairingEngine";
@@ -40,6 +42,24 @@ import type {
   MenuItemDTO,
   VoiceCheckoutStep,
 } from "@/lib/types";
+
+/** Removes exactly one unit of a solo (non-combo) cart item with the given menuItemId.
+ *  Decrements quantity if > 1; removes the entry entirely if quantity is 1.
+ *  This ensures that when converting one of multiple solos to a meal, the others are preserved. */
+function removeSoloUnit(
+  menuItemId: number,
+  cartItems: { id: string; menuItemId: number; quantity: number; isCombo?: boolean | null }[],
+  removeFn: (id: string) => void,
+  updateQtyFn: (id: string, qty: number) => void
+) {
+  const solo = cartItems.find((ci) => ci.menuItemId === menuItemId && !ci.isCombo);
+  if (!solo) return;
+  if (solo.quantity > 1) {
+    updateQtyFn(solo.id, solo.quantity - 1);
+  } else {
+    removeFn(solo.id);
+  }
+}
 
 function dlog(event: string, data?: any) {
   const msg = data !== undefined ? (typeof data === "string" ? data : JSON.stringify(data)) : "";
@@ -65,6 +85,7 @@ export default function OrderPage() {
   // Cart store
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
   const clearCart = useCartStore((s) => s.clearCart);
   const cartSummary = useCartStore((s) => s.cartSummary);
   const items = useCartStore((s) => s.items);
@@ -99,6 +120,19 @@ export default function OrderPage() {
 
   // Text input mode
   const [textInputMode, setTextInputMode] = useState(false);
+
+  // Frustration tracking: consecutive "unknown" NLP responses
+  const consecutiveUnknownsRef = useRef(0);
+
+  // B2: TTS gate — track last speak time to avoid rapid-fire speech
+  const lastSpeakTimeRef = useRef(0);
+  function gatedSpeak(text: string, minGapMs: number = 1500) {
+    const now = Date.now();
+    if (!text || text.length < 5) return;
+    if (now - lastSpeakTimeRef.current < minGapMs) return;
+    lastSpeakTimeRef.current = now;
+    speak(text);
+  }
 
   // Meal conversion modal
   const [mealConversionData, setMealConversionData] = useState<{
@@ -159,14 +193,14 @@ export default function OrderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Idle timeout — 60s redirects to idle, warning at 15s before
+  // Idle timeout — 120s redirects to idle, warning at 30s before
   const { showWarning: idleWarning, secondsLeft: idleSecondsLeft } = useIdleTimeout(() => {
     clearCart();
     clearMessages();
     resetConversation();
     destroyAvatar();
     router.push("/");
-  }, 60000, 15000);
+  }, 120000, 30000);
 
   // Silently check meal conversion — stores data for meal_response handler
   // No modal or speech — Casey handles meal offers conversationally via NLP prompt rule 22
@@ -217,7 +251,7 @@ export default function OrderPage() {
     if (prompt && canSuggest("pairing")) {
       markSuggested("pairing");
       setTimeout(() => {
-        speak(prompt);
+        gatedSpeak(prompt, 3000); // B2: Skip upsell if Casey spoke recently
         addChatMessage({ role: "assistant", text: prompt });
       }, 2000);
     }
@@ -249,6 +283,7 @@ export default function OrderPage() {
       dlog("HANDLER", intent.action);
       switch (intent.action) {
         case "add": {
+          consecutiveUnknownsRef.current = 0; // Reset frustration counter on successful add
           // Add ALL items to cart immediately — never block on meal offers
           for (const item of intent.items) {
             if (item.matchedMenuItemId) {
@@ -270,7 +305,7 @@ export default function OrderPage() {
               };
               addItem(cartItem);
               // Track for undo and pronoun resolution
-              const id = `${cartItem.menuItemId}-${cartItem.customizations.sort().join(",")}`;
+              const id = `${cartItem.menuItemId}-solo-${cartItem.customizations.sort().join(",")}`;
               pushAction({ type: "add", item: { ...cartItem, id }, timestamp: Date.now() });
               lastAddedItemRef.current = { name: item.name, menuItemId: item.matchedMenuItemId };
             }
@@ -298,12 +333,9 @@ export default function OrderPage() {
               dlog("MEAL_CHECK_RESULT", { hasCombo: !!mealData.combo, comboName: mealData.combo?.name });
 
               if (mealData.combo) {
-                // Remove the solo item we just added
+                // Remove exactly the unit we just added (decrement if multiple solos exist)
                 const currentItems = useCartStore.getState().items;
-                const solo = currentItems.find(
-                  (ci) => ci.menuItemId === firstMainItem.matchedMenuItemId && !ci.isCombo
-                );
-                if (solo) removeItem(solo.id);
+                removeSoloUnit(firstMainItem.matchedMenuItemId!, currentItems, removeItem, updateQuantity);
 
                 // Pre-fill size if user specified it
                 const prefilledSize = sizeFromTranscript;
@@ -352,8 +384,11 @@ export default function OrderPage() {
               checkMealConversionSilent(firstMainItem, sizeFromTranscript ?? undefined);
             }
           } else {
-            // No meal involved — try upsell
-            setTimeout(tryUpsell, 3000);
+            // No meal involved — try upsell, but only if Casey's response didn't already ask a question
+            // (e.g. "What sauce?" + upsell drink = two questions at once)
+            if (!intent.response?.includes("?")) {
+              setTimeout(tryUpsell, 3000);
+            }
           }
 
           // Filter menu to show matched items
@@ -429,12 +464,9 @@ export default function OrderPage() {
               });
               const mealData = await mealRes.json();
               if (mealData.combo) {
-                // Remove solo item from cart if it exists
+                // Remove exactly one solo unit (decrement if multiple exist)
                 const currentItems = useCartStore.getState().items;
-                const solo = currentItems.find(
-                  (ci) => ci.menuItemId === item.matchedMenuItemId && !ci.isCombo
-                );
-                if (solo) removeItem(solo.id);
+                removeSoloUnit(item.matchedMenuItemId!, currentItems, removeItem, updateQuantity);
 
                 const pendingItem = {
                   menuItemId: item.matchedMenuItemId!,
@@ -613,13 +645,6 @@ export default function OrderPage() {
                 } else {
                   // All done — add everything to cart
                   const allItems = pendingOrderManager.getState()?.items ?? [];
-                  // Remove any solo versions before adding meal versions
-                  for (const pi of allItems) {
-                    if (pi.isMeal) {
-                      const solo = items.find((ci) => ci.menuItemId === pi.menuItemId && !ci.isCombo);
-                      if (solo) removeItem(solo.id);
-                    }
-                  }
                   for (const pi of allItems) {
                     addItem({
                       menuItemId: pi.menuItemId,
@@ -653,11 +678,8 @@ export default function OrderPage() {
           }
 
           if (mealConversionData && isMealAccepting && !isMealRejecting) {
-            // Remove the solo item from cart (it was already added)
-            const soloItem = items.find(
-              (ci) => ci.menuItemId === mealConversionData.pendingItem.matchedMenuItemId
-            );
-            if (soloItem) removeItem(soloItem.id);
+            // Remove exactly one solo unit (decrement if multiple exist, add !ci.isCombo guard)
+            removeSoloUnit(mealConversionData.pendingItem.matchedMenuItemId!, items, removeItem, updateQuantity);
             // Start the multi-step meal customization flow, pre-filling size if known
             const pendingItem = {
               menuItemId: mealConversionData.pendingItem.matchedMenuItemId ?? 0,
@@ -692,12 +714,17 @@ export default function OrderPage() {
               );
               if (soloItem) {
                 dlog("PROACTIVE_MEAL_CONVERSION", { item: soloItem.name, menuItemId: soloItem.menuItemId });
-                removeItem(soloItem.id);
+                // Decrement by 1 rather than wiping the entry (preserves other solos of the same item)
+                if (soloItem.quantity > 1) {
+                  updateQuantity(soloItem.id, soloItem.quantity - 1);
+                } else {
+                  removeItem(soloItem.id);
+                }
                 const pendingItem = {
                   menuItemId: soloItem.menuItemId,
                   name: soloItem.name,
                   basePrice: soloItem.unitPrice,
-                  quantity: soloItem.quantity,
+                  quantity: 1,
                   isMeal: true,
                   mealDetails: {} as any,
                   isComplete: false,
@@ -771,11 +798,53 @@ export default function OrderPage() {
           break;
         }
 
-        case "info":
-          // Informational response — just speak it, no cart changes, no clarification
+        case "info": {
+          // Category browse: "show me burgers", "what chicken do you have?" → filter carousel
+          if (transcript && allMenuItems.length > 0) {
+            const CATEGORY_KEYWORDS: [string, string[]][] = [
+              ["Burgers", ["burger", "burgers", "big mac", "quarter pounder", "cheeseburger", "double"]],
+              ["Chicken", ["chicken", "nugget", "nuggets", "mcnugget", "ayam", "crispy", "tender"]],
+              ["Sides", ["fries", "fry", "hash brown", "corn cup", "side", "sides"]],
+              ["Drinks", ["drink", "drinks", "beverage", "coke", "soda", "juice", "water", "milo", "pepsi"]],
+              ["Desserts", ["dessert", "desserts", "mcflurry", "sundae", "ice cream", "pie", "cone", "waffle"]],
+              ["Breakfast", ["breakfast", "egg", "pancake", "hotcake"]],
+              ["McCafé", ["coffee", "latte", "cappuccino", "mccafe", "cafe", "americano", "espresso"]],
+              ["Happy Meal", ["happy meal", "kids meal", "kids"]],
+            ];
+            const lower = (transcript ?? "").toLowerCase();
+            for (const [catName, keywords] of CATEGORY_KEYWORDS) {
+              if (keywords.some((k) => lower.includes(k))) {
+                const catItems = allMenuItems.filter((m) => {
+                  const mCat = m.categoryName.toLowerCase();
+                  const mName = m.name.toLowerCase();
+                  return (
+                    mCat.includes(catName.toLowerCase()) ||
+                    catName.toLowerCase().includes(mCat) ||
+                    // Fallback: match item names directly — handles cases where DB category
+                    // names don't align (e.g. "Ayam Goreng McD" / "McNuggets" for "Chicken")
+                    keywords.some((k) => mName.includes(k))
+                  );
+                });
+                if (catItems.length > 0) {
+                  setFilteredItemIds(catItems.map((m) => m.id));
+                  setFilterQuery(catName);
+                }
+                break;
+              }
+            }
+          }
           break;
+        }
 
         case "unknown": {
+          consecutiveUnknownsRef.current += 1;
+          // C6: After 2 mishears — empathetic tone; after 3 — auto-show text input
+          if (consecutiveUnknownsRef.current >= 3 && !textInputMode) {
+            setTextInputMode(true);
+            intent.response = "No worries! I've opened a text input so you can type your order instead.";
+          } else if (consecutiveUnknownsRef.current >= 2 && !intent.fuzzyCandidates?.length) {
+            intent.response = "Sorry, I'm having a bit of trouble. Could you say that one more time, or try typing it below?";
+          }
           const candidates = intent.fuzzyCandidates;
           if (candidates && candidates.length > 0) {
             const candidateDTOs = candidates.map((c) => ({
@@ -964,13 +1033,6 @@ export default function OrderPage() {
                 // All done — add everything to cart
                 const allItems = pendingOrderManager.getState()?.items ?? [];
                 dlog("MEAL_COMPLETE", { itemCount: allItems.length });
-                // Remove any solo versions before adding meal versions
-                for (const pi of allItems) {
-                  if (pi.isMeal) {
-                    const solo = items.find((ci) => ci.menuItemId === pi.menuItemId && !ci.isCombo);
-                    if (solo) removeItem(solo.id);
-                  }
-                }
                 for (const pi of allItems) {
                   addItem({
                     menuItemId: pi.menuItemId,
@@ -1014,11 +1076,8 @@ export default function OrderPage() {
           dlog("MEAL_OFFER_INTERCEPT", { accepting: isAccepting, rejecting: isRejecting, text: userText });
 
           if (isAccepting && !isRejecting) {
-            // Remove the solo item from cart (it was already added)
-            const soloItem = items.find(
-              (ci) => ci.menuItemId === mealConversionData.pendingItem.matchedMenuItemId
-            );
-            if (soloItem) removeItem(soloItem.id);
+            // Remove exactly one solo unit (decrement if multiple exist, add !ci.isCombo guard)
+            removeSoloUnit(mealConversionData.pendingItem.matchedMenuItemId!, items, removeItem, updateQuantity);
             // Start multi-step meal customization, pre-filling size if already known
             const pendingItem = {
               menuItemId: mealConversionData.pendingItem.matchedMenuItemId ?? 0,
@@ -1052,9 +1111,12 @@ export default function OrderPage() {
           // Ambiguous — fall through to NLP
         }
 
-        const recentMessages = chatMessages.slice(-5).map((m) => ({
+        // A5: Rolling window of 8 messages; compress long assistant messages to save tokens
+        const recentMessages = chatMessages.slice(-8).map((m) => ({
           role: m.role,
-          text: m.text,
+          text: m.role === "assistant" && m.text.length > 100
+            ? m.text.slice(0, 97) + "…"
+            : m.text,
         }));
 
         let contextSummary = cartSummary();
@@ -1188,10 +1250,22 @@ export default function OrderPage() {
           </div>
         )}
 
-        {/* Mic button or text input */}
+        {/* Mic button / text input + stop-speaking button */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-end gap-3">
+          {/* Stop speaking button — always visible next to mic */}
+          <button
+            onClick={() => stopSpeech()}
+            className="w-12 h-12 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/60 active:scale-95 transition-all touch-manipulation"
+            title="Stop Casey speaking"
+            aria-label="Stop speaking"
+          >
+            <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="1" />
+            </svg>
+          </button>
+
           {textInputMode ? (
-            <div className="w-72">
+            <div className="w-64">
               <TextInput onSubmit={processTranscript} disabled={isProcessing} />
             </div>
           ) : (
@@ -1255,6 +1329,12 @@ export default function OrderPage() {
         }}
         onKeepSeparate={() => setMealDealSuggestion(null)}
       />
+
+      {/* C2: Fly-to-cart animation overlay */}
+      <CartFlyOverlay />
+
+      {/* Checkout modal — review, payment, receipt */}
+      <CheckoutModal />
     </div>
   );
 }

@@ -137,7 +137,7 @@ export const mockCategories: CategoryDTO[] = [
 
 export function makeCartItem(overrides: Partial<CartItem> & { menuItemId: number; name: string }): CartItem {
   return {
-    id: `${overrides.menuItemId}-`,
+    id: `${overrides.menuItemId}-${overrides.isCombo ? "combo" : "solo"}-`,
     quantity: 1,
     unitPrice: 5.99,
     customizations: [],

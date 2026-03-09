@@ -17,15 +17,23 @@ function dynamoTable(): string {
 }
 
 async function fetchFromDB() {
-  const categories = await prisma.category.findMany({
-    orderBy: { sortOrder: "asc" },
-    include: {
-      items: {
-        where: { available: true },
-        include: { aliases: true, customizations: true },
+  const [categories, popularCombos] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        items: {
+          where: { available: true },
+          include: { aliases: true, customizations: true },
+        },
       },
-    },
-  });
+    }),
+    prisma.comboMeal.findMany({
+      where: { popular: true, available: true },
+      select: { mainItemId: true },
+    }),
+  ]);
+
+  const popularMainItemIds = new Set(popularCombos.map((c) => c.mainItemId));
 
   const catDTOs: CategoryDTO[] = categories.map((cat) => ({
     id: cat.id,
@@ -47,6 +55,7 @@ async function fetchFromDB() {
           name: c.name,
           priceExtra: Number(c.priceExtra),
         })),
+        popular: popularMainItemIds.has(item.id),
       })
     ),
   }));

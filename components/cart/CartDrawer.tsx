@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import CartItemComponent from "./CartItem";
 import { useUIStore } from "@/stores/uiStore";
 import { useCartStore } from "@/stores/cartStore";
 
 export default function CartDrawer() {
-  const router = useRouter();
   const cartOpen = useUIStore((s) => s.cartOpen);
   const setCartOpen = useUIStore((s) => s.setCartOpen);
+  const setCheckoutOpen = useUIStore((s) => s.setCheckoutOpen);
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
   const tax = useCartStore((s) => s.tax);
@@ -30,8 +29,7 @@ export default function CartDrawer() {
   }, [cartOpen]);
 
   function handleCheckout() {
-    setCartOpen(false);
-    router.push("/checkout");
+    setCheckoutOpen(true);
   }
 
   function handleClearCart() {

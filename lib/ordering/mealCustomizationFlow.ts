@@ -24,7 +24,7 @@ export interface PendingMealDetails {
 
 export function parseMealSize(text: string): "medium" | "large" | null {
   const t = text.toLowerCase();
-  if (/\b(large|big|upsize)\b/.test(t)) return "large";
+  if (/\b(large|upsize|go large|size up|supersize)\b/.test(t)) return "large";
   if (/\b(medium|regular|normal)\b/.test(t)) return "medium";
   return null;
 }
